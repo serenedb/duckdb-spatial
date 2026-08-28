@@ -4590,15 +4590,6 @@ struct ST_GeomFromGeoJSON {
 	static void Register(ExtensionLoader &loader) {
 		FunctionBuilder::RegisterScalar(loader, "ST_GeomFromGeoJSON", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
-				variant.AddParameter("geojson", LogicalType::JSON());
-				variant.SetReturnType(LogicalType::GEOMETRY());
-
-				variant.SetInit(LocalState::Init);
-				variant.SetFunction(Execute);
-				variant.CanThrowErrors();
-			});
-
-			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.AddParameter("geojson", LogicalType::VARCHAR);
 				variant.SetReturnType(LogicalType::GEOMETRY());
 

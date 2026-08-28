@@ -194,7 +194,8 @@ PhysicalOperator &RTreeIndex::CreatePlan(PlanIndexInput &input) {
 
 	// Now finally create the actual physical create index operator
 	auto &physical_create_index =
-	    planner.Make<PhysicalCreateRTreeIndex>(op, op.table, op.info->column_ids, std::move(op.info),
+	    planner.Make<PhysicalCreateRTreeIndex>(op, op.table.Cast<TableCatalogEntry>(),
+	                                           op.info->column_ids, std::move(op.info),
 	                                           std::move(op.unbound_expressions), op.estimated_cardinality);
 	physical_create_index.children.push_back(physical_order);
 	return physical_create_index;
@@ -271,7 +272,8 @@ PhysicalOperator &LogicalCreateRTreeIndex::CreatePlan(ClientContext &context, Ph
 
 	// Now finally create the actual physical create index operator
 	auto &physical_create_index =
-	    planner.Make<PhysicalCreateRTreeIndex>(op, op.table, op.info->column_ids, std::move(op.info),
+	    planner.Make<PhysicalCreateRTreeIndex>(op, op.table.Cast<TableCatalogEntry>(),
+	                                           op.info->column_ids, std::move(op.info),
 	                                           std::move(op.unbound_expressions), op.estimated_cardinality);
 	physical_create_index.children.push_back(physical_order);
 	return physical_create_index;

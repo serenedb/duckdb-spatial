@@ -62,25 +62,9 @@ inline bool GeometryExtentIsEmpty(const GeometryExtent &extent) {
 //! Returns false if the operands don't match that shape (e.g. a spatial join, or both operands constant).
 inline bool TryGetGeometryPredicateOperands(const FunctionStatisticsPruneInput &input,
                                             GeometryPredicateOperands &operands) {
-	auto &children = input.function.GetChildren();
-	if (children.size() < 2) {
-		return false;
-	}
-	// Constants are folded by the time we get here, so the constant operand is a plain BoundConstantExpression.
-	const bool lhs_const = children[0]->GetExpressionType() == ExpressionType::VALUE_CONSTANT;
-	const bool rhs_const = children[1]->GetExpressionType() == ExpressionType::VALUE_CONSTANT;
-	if (lhs_const == rhs_const) {
-		// Need exactly one constant operand and one column operand.
-		return false;
-	}
-	operands.column_idx = lhs_const ? 1 : 0;
-	operands.column_stats = input.ChildStats(operands.column_idx);
-	const auto constant_stats = input.ChildStats(1 - operands.column_idx);
-	if (!operands.column_stats || !constant_stats || constant_stats->GetStatsType() != StatisticsType::GEOMETRY_STATS) {
-		return false;
-	}
-	operands.const_extent = GeometryStats::GetExtent(*constant_stats);
-	return true;
+	(void)input;
+	(void)operands;
+	return false;
 }
 
 //! Resolve the zonemap check given the predicate's bbox semantics and the column operand's index.

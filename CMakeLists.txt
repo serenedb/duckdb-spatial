@@ -32,6 +32,20 @@ option(SPATIAL_USE_NETWORK "Enable network functionality" ON)
 # Enable GEOS support
 option(SPATIAL_USE_GEOS "Enable GEOS support" ON)
 
+# Enable PROJ support (ST_Transform, the *_Spheroid functions, named-CRS lookup)
+option(SPATIAL_USE_PROJ "Enable PROJ support" ON)
+
+# Enable GDAL support (ST_Read, ST_Read_Meta, ST_Drivers, COPY ... FORMAT GDAL).
+# GDAL calls into the PROJ module, so it cannot be enabled on its own.
+option(SPATIAL_USE_GDAL "Enable GDAL support" ON)
+
+if(SPATIAL_USE_GDAL AND NOT SPATIAL_USE_PROJ)
+  message(
+    FATAL_ERROR
+      "SPATIAL_USE_GDAL requires SPATIAL_USE_PROJ (the GDAL module calls IdentifyProjCRS)"
+  )
+endif()
+
 add_subdirectory(src/spatial)
 add_subdirectory(src/sgl)
 include_directories(src)
@@ -46,29 +60,57 @@ add_subdirectory(src/third_party/shapelib)
 
 add_library(${EXTENSION_NAME} STATIC ${EXTENSION_SOURCES})
 
-# annoyingly for expat on windows
-set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES} MD.lib)
 set(ZLIB_USE_STATIC_LIBS ON)
 set(OPENSSL_USE_STATIC_LIBS ON)
 find_package(ZLIB REQUIRED)
-find_package(PROJ CONFIG REQUIRED)
-find_package(GDAL CONFIG REQUIRED)
-find_package(EXPAT REQUIRED)
-find_package(unofficial-sqlite3 CONFIG REQUIRED)
 
 # Important: The link order matters, its the reverse order of dependency
-set(EXTENSION_DEPENDENCIES GDAL::GDAL PROJ::proj EXPAT::EXPAT
-                           unofficial::sqlite3::sqlite3 ZLIB::ZLIB)
+set(EXTENSION_DEPENDENCIES "")
+
+if(SPATIAL_USE_GDAL)
+  message(STATUS "Building with GDAL functionality")
+  # annoyingly for expat on windows
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES} MD.lib)
+  find_package(GDAL CONFIG REQUIRED)
+  find_package(EXPAT REQUIRED)
+  list(APPEND EXTENSION_DEPENDENCIES GDAL::GDAL)
+  add_definitions(-DSPATIAL_USE_GDAL=1)
+endif()
+
+if(SPATIAL_USE_PROJ)
+  message(STATUS "Building with PROJ functionality")
+  find_package(PROJ CONFIG REQUIRED)
+  find_package(unofficial-sqlite3 CONFIG REQUIRED)
+  list(APPEND EXTENSION_DEPENDENCIES PROJ::proj)
+  add_definitions(-DSPATIAL_USE_PROJ=1)
+endif()
+
+if(SPATIAL_USE_GDAL)
+  list(APPEND EXTENSION_DEPENDENCIES EXPAT::EXPAT)
+endif()
+
+if(SPATIAL_USE_PROJ)
+  list(APPEND EXTENSION_DEPENDENCIES unofficial::sqlite3::sqlite3)
+endif()
+
+list(APPEND EXTENSION_DEPENDENCIES ZLIB::ZLIB)
 
 if(SPATIAL_USE_GEOS)
   message(STATUS "Building with GEOS functionality")
-  find_package(GEOS REQUIRED)
+  if(NOT TARGET GEOS::geos_c)
+    find_package(GEOS REQUIRED)
+  endif()
   set(EXTENSION_DEPENDENCIES ${EXTENSION_DEPENDENCIES} GEOS::geos_c)
   add_definitions(-DSPATIAL_USE_GEOS=1)
 endif()
 
 if(EMSCRIPTEN)
   message(STATUS "Building for Emscripten, disabling network functionality")
+  set(SPATIAL_USE_NETWORK OFF)
+endif()
+
+if(NOT SPATIAL_USE_GDAL)
+  # curl/openssl are only reachable through GDAL's fs/drivers
   set(SPATIAL_USE_NETWORK OFF)
 endif()
 
