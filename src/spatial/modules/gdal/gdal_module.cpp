@@ -2045,12 +2045,12 @@ auto Bind(ClientContext &context, TableFunctionBindInput &input, vector<LogicalT
 			result->files.emplace_back(std::move(raw_path));
 		} else {
 			const auto mf_reader = MultiFileReader::Create(input.table_function);
-			const auto mf_inputs = mf_reader->CreateFileList(context, input_val, FileGlobOptions::ALLOW_EMPTY);
+			const auto mf_inputs = mf_reader->CreateFileList(context, input_val, FileGlobOptions::DISALLOW_EMPTY);
 			result->files = mf_inputs->GetAllFiles();
 		}
 	} else {
 		const auto mf_reader = MultiFileReader::Create(input.table_function);
-		const auto mf_inputs = mf_reader->CreateFileList(context, input_val, FileGlobOptions::ALLOW_EMPTY);
+		const auto mf_inputs = mf_reader->CreateFileList(context, input_val, FileGlobOptions::DISALLOW_EMPTY);
 		result->files = mf_inputs->GetAllFiles();
 	}
 
@@ -2166,6 +2166,9 @@ void Scan(ClientContext &context, TableFunctionInput &input, DataChunk &output) 
 		} catch (...) {
 			// Just skip anything we cant open
 			continue;
+		}
+		if (!dataset) {
+			ThrowGDALError(StringUtil::Format("Could not open GDAL dataset at: %s", file.path));
 		}
 
 		output.data[0].SetValue(output_idx, file.path);

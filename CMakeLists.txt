@@ -32,6 +32,16 @@ option(SPATIAL_USE_NETWORK "Enable network functionality" ON)
 # Enable GEOS support
 option(SPATIAL_USE_GEOS "Enable GEOS support" ON)
 
+# Enable the persistent RTREE index (the index type, its CREATE INDEX plan, its
+# scan/pushdown optimizer and the rtree_index_* pragmas). The in-memory FlatRTree
+# that accelerates spatial joins is a separate, per-query structure and is always
+# built.
+option(SPATIAL_USE_RTREE "Enable the RTREE index" OFF)
+
+if(SPATIAL_USE_RTREE)
+  add_definitions(-DSPATIAL_USE_RTREE=1)
+endif()
+
 # Enable PROJ support (ST_Transform, the *_Spheroid functions, named-CRS lookup)
 option(SPATIAL_USE_PROJ "Enable PROJ support" ON)
 
@@ -71,21 +81,31 @@ if(SPATIAL_USE_GDAL)
   message(STATUS "Building with GDAL functionality")
   # annoyingly for expat on windows
   set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES} MD.lib)
-  find_package(GDAL CONFIG REQUIRED)
-  find_package(EXPAT REQUIRED)
+  if(NOT TARGET GDAL::GDAL)
+    find_package(GDAL CONFIG REQUIRED)
+  endif()
+  # GDAL only reaches expat from its XML-based drivers (GML, KML, OSM); a build
+  # that leaves GDAL_USE_EXPAT off has nothing to link and should not require it.
+  if(GDAL_USE_EXPAT AND NOT TARGET EXPAT::EXPAT)
+    find_package(EXPAT REQUIRED)
+  endif()
   list(APPEND EXTENSION_DEPENDENCIES GDAL::GDAL)
   add_definitions(-DSPATIAL_USE_GDAL=1)
 endif()
 
 if(SPATIAL_USE_PROJ)
   message(STATUS "Building with PROJ functionality")
-  find_package(PROJ CONFIG REQUIRED)
-  find_package(unofficial-sqlite3 CONFIG REQUIRED)
+  if(NOT TARGET PROJ::proj)
+    find_package(PROJ CONFIG REQUIRED)
+  endif()
+  if(NOT TARGET unofficial::sqlite3::sqlite3)
+    find_package(unofficial-sqlite3 CONFIG REQUIRED)
+  endif()
   list(APPEND EXTENSION_DEPENDENCIES PROJ::proj)
   add_definitions(-DSPATIAL_USE_PROJ=1)
 endif()
 
-if(SPATIAL_USE_GDAL)
+if(SPATIAL_USE_GDAL AND GDAL_USE_EXPAT)
   list(APPEND EXTENSION_DEPENDENCIES EXPAT::EXPAT)
 endif()
 

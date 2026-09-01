@@ -2,8 +2,10 @@
 #include "spatial/spatial_extension.hpp"
 
 #include "duckdb.hpp"
+#if SPATIAL_USE_RTREE
 #include "index/rtree/rtree.hpp"
 #include "spatial/index/rtree/rtree_module.hpp"
+#endif
 #if SPATIAL_USE_GDAL
 #include "spatial/modules/gdal/gdal_module.hpp"
 #endif
@@ -54,10 +56,12 @@ static void LoadInternal(ExtensionLoader &loader) {
 	RegisterMapboxVectorTileModule(loader);
 	RegisterWKBModule(loader);
 
+#if SPATIAL_USE_RTREE
 	RTreeModule::RegisterIndex(loader);
 	RTreeModule::RegisterIndexPragmas(loader);
 	RTreeModule::RegisterIndexScan(loader);
 	RTreeModule::RegisterIndexPlanScan(loader);
+#endif
 
 	RegisterSpatialOperatorExtension(loader.GetDatabaseInstance());
 }
