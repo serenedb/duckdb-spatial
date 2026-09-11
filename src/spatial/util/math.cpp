@@ -64,17 +64,29 @@ string MathUtil::format_coord(double x, double y, double z, double m) {
 
 #else
 
+static string FormatTrimmed(double d, int32_t precision) {
+	auto str = StringUtil::Format(StringUtil::Format("%%.%df", precision), d);
+	const auto dot = str.find('.');
+	if (dot == string::npos) {
+		return str;
+	}
+	auto last = str.find_last_not_of('0');
+	if (last == dot) {
+		last--;
+	}
+	str.erase(last + 1);
+	return str;
+}
+
 void MathUtil::format_coord(double x, double y, vector<char> &buffer, int32_t precision) {
 	D_ASSERT(precision >= 0 && precision <= 15);
-	auto fmt_str = StringUtil::Format("%%.%df %%.%df", precision, precision);
-	auto str = StringUtil::Format(fmt_str, x, y);
+	const auto str = FormatTrimmed(x, precision) + " " + FormatTrimmed(y, precision);
 	buffer.insert(buffer.end(), str.c_str(), str.c_str() + str.size());
 }
 
 void MathUtil::format_coord(double d, vector<char> &buffer, int32_t precision) {
 	D_ASSERT(precision >= 0 && precision <= 15);
-	auto fmt_str = StringUtil::Format("%%.%df", precision);
-	auto str = StringUtil::Format(fmt_str, d);
+	const auto str = FormatTrimmed(d, precision);
 	buffer.insert(buffer.end(), str.c_str(), str.c_str() + str.size());
 }
 

@@ -12,6 +12,9 @@
 #if SPATIAL_USE_GEOS
 #include "spatial/modules/geos/geos_module.hpp"
 #endif
+#if SPATIAL_USE_BOOST
+#include "spatial/modules/boost/boost_module.hpp"
+#endif
 #include "spatial/modules/mvt/mvt_module.hpp"
 #include "operators/spatial_operator_extension.hpp"
 #include "spatial/modules/main/spatial_functions.hpp"
@@ -50,6 +53,9 @@ static void LoadInternal(ExtensionLoader &loader) {
 #endif
 #if SPATIAL_USE_GEOS
 	RegisterGEOSModule(loader);
+#endif
+#if SPATIAL_USE_BOOST
+	RegisterBoostModule(loader);
 #endif
 	RegisterOSMModule(loader);
 	RegisterShapefileModule(loader);

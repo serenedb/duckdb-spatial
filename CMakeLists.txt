@@ -32,6 +32,21 @@ option(SPATIAL_USE_NETWORK "Enable network functionality" ON)
 # Enable GEOS support
 option(SPATIAL_USE_GEOS "Enable GEOS support" ON)
 
+# Enable the Boost.Geometry backend (the permissively licensed replacement for the GEOS module). It registers the same
+# predicate functions, so exactly one of the two backends may be on.
+option(SPATIAL_USE_BOOST "Enable the Boost.Geometry backend" OFF)
+
+if(SPATIAL_USE_BOOST AND SPATIAL_USE_GEOS)
+  message(
+    FATAL_ERROR
+      "SPATIAL_USE_BOOST and SPATIAL_USE_GEOS both register ST_Intersects and friends; enable only one"
+  )
+endif()
+
+if(SPATIAL_USE_BOOST)
+  add_definitions(-DSPATIAL_USE_BOOST=1)
+endif()
+
 # Enable the persistent RTREE index (the index type, its CREATE INDEX plan, its
 # scan/pushdown optimizer and the rtree_index_* pragmas). The in-memory FlatRTree
 # that accelerates spatial joins is a separate, per-query structure and is always
@@ -122,6 +137,14 @@ if(SPATIAL_USE_GEOS)
   endif()
   set(EXTENSION_DEPENDENCIES ${EXTENSION_DEPENDENCIES} GEOS::geos_c)
   add_definitions(-DSPATIAL_USE_GEOS=1)
+endif()
+
+if(SPATIAL_USE_BOOST)
+  message(STATUS "Building with Boost.Geometry functionality")
+  if(NOT TARGET Boost::headers)
+    find_package(Boost REQUIRED)
+  endif()
+  list(APPEND EXTENSION_DEPENDENCIES Boost::headers)
 endif()
 
 if(EMSCRIPTEN)
