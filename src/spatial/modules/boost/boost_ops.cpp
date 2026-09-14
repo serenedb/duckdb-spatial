@@ -420,7 +420,15 @@ BoostGeometry PointOnSurface(const BoostGeometry &geom) {
 }
 
 BoostGeometry Reverse(const BoostGeometry &geom) {
-	const auto &single = Only(geom);
+	if (geom.IsCollection()) {
+		std::vector<BoostSingle> parts;
+		parts.reserve(geom.Parts().size());
+		for (const auto &part : geom.Parts()) {
+			parts.push_back(Reverse(BoostGeometry(part)).Single());
+		}
+		return BoostGeometry(std::move(parts));
+	}
+	const auto &single = geom.Single();
 	return boost::variant2::visit(
 	    [](const auto &g) -> BoostGeometry {
 		    using G = std::decay_t<decltype(g)>;
@@ -505,16 +513,28 @@ BoostGeometry RemoveRepeatedPoints(const BoostGeometry &geom) {
 	    single);
 }
 
+bool IsEmptyGeometry(const BoostGeometry &geom) {
+	for (const auto &part : geom.Parts()) {
+		if (!boost::variant2::visit([](const auto &g) { return bg::is_empty(g); }, part)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 bool IsValid(const BoostGeometry &geom) {
+	const auto valid = [](const BoostSingle &part) {
+		return boost::variant2::visit([](const auto &g) { return bg::is_empty(g) || bg::is_valid(g); }, part);
+	};
 	if (geom.IsCollection()) {
 		for (const auto &part : geom.Parts()) {
-			if (!boost::variant2::visit([](const auto &g) { return bg::is_valid(g); }, part)) {
+			if (!valid(part)) {
 				return false;
 			}
 		}
 		return true;
 	}
-	return boost::variant2::visit([](const auto &g) { return bg::is_valid(g); }, geom.Single());
+	return valid(geom.Single());
 }
 
 bool IsSimple(const BoostGeometry &geom) {

@@ -3562,6 +3562,53 @@ struct ST_ExteriorRing {
 // ST_FlipCoordinates
 //======================================================================================================================
 
+struct ST_Reverse {
+
+	//------------------------------------------------------------------------------------------------------------------
+	// GEOMETRY
+	//------------------------------------------------------------------------------------------------------------------
+	// Reversing is pure vertex reordering, so it runs on the serialized form. Routing it through Boost would lose the
+	// result: the Boost model pins ring orientation and normalises it on every deserialize, which undoes the reversal
+	// of a polygon. Staying here also keeps Z and M, which the Boost round-trip drops.
+	static void ExecuteGeometry(DataChunk &args, ExpressionState &state, Vector &result) {
+		auto &input = args.data[0];
+		const auto count = args.size();
+
+		UnaryExecutor::Execute<string_t, string_t>(input, result, count, [&](const string_t &blob) {
+			auto &lstate = LocalState::ResetAndGet(state);
+
+			sgl::geometry geom;
+			lstate.Deserialize(blob, geom);
+
+			sgl::ops::reverse_vertices(lstate.GetAllocator(), geom);
+
+			return lstate.Serialize(result, geom);
+		});
+	}
+
+	//------------------------------------------------------------------------------------------------------------------
+	// Register
+	//------------------------------------------------------------------------------------------------------------------
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "ST_Reverse", [](ScalarFunctionBuilder &func) {
+			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
+				variant.AddParameter("geom", LogicalType::GEOMETRY());
+				variant.SetReturnType(LogicalType::GEOMETRY());
+				variant.SetBind(GeoTypes::PropagateCRS);
+
+				variant.SetInit(LocalState::Init);
+				variant.SetFunction(ExecuteGeometry);
+
+				variant.SetDescription("Returns the geometry with the order of its vertices reversed");
+				variant.SetExample("SELECT ST_AsText(ST_Reverse('LINESTRING(0 0, 1 1)'::GEOMETRY));");
+			});
+
+			func.SetTag("ext", "spatial");
+			func.SetTag("category", "construction");
+		});
+	}
+};
+
 struct ST_FlipCoordinates {
 
 	//------------------------------------------------------------------------------------------------------------------
@@ -9529,6 +9576,7 @@ void RegisterSpatialScalarFunctions(ExtensionLoader &loader) {
 	// Op_IntersectApprox::Register(loader);
 	ST_ExteriorRing::Register(loader);
 	ST_FlipCoordinates::Register(loader);
+	ST_Reverse::Register(loader);
 	ST_Force2D::Register(loader);
 	ST_Force3DZ::Register(loader);
 	ST_Force3DM::Register(loader);

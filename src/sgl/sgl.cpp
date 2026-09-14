@@ -2544,6 +2544,23 @@ void flip_vertices(allocator &allocator, geometry &geom) {
 	});
 }
 
+void reverse_vertices(allocator &allocator, geometry &geom) {
+	visit_vertex_arrays_mutable(geom, [&allocator](geometry &part) {
+		const auto vertex_count = part.get_vertex_count();
+		const auto vertex_width = part.get_vertex_width();
+
+		const auto old_vertex_array = part.get_vertex_array();
+		const auto new_vertex_array = static_cast<uint8_t *>(allocator.alloc(vertex_count * vertex_width));
+
+		for (uint32_t i = 0; i < vertex_count; i++) {
+			memcpy(new_vertex_array + i * vertex_width, old_vertex_array + (vertex_count - 1 - i) * vertex_width,
+			       vertex_width);
+		}
+
+		part.set_vertex_array(new_vertex_array, vertex_count);
+	});
+}
+
 void affine_transform(allocator &allocator, geometry &geom, const affine_matrix &matrix) {
 	visit_vertex_arrays_mutable(geom, [&allocator, &matrix](geometry &part) {
 		const auto vertex_count = part.get_vertex_count();

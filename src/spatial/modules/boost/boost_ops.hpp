@@ -23,6 +23,7 @@ BoostGeometry Boundary(const BoostGeometry &geom);
 BoostGeometry Normalize(const BoostGeometry &geom);
 BoostGeometry RemoveRepeatedPoints(const BoostGeometry &geom);
 
+bool IsEmptyGeometry(const BoostGeometry &geom);
 bool IsValid(const BoostGeometry &geom);
 bool IsSimple(const BoostGeometry &geom);
 bool IsRing(const BoostGeometry &geom);

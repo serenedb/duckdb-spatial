@@ -114,6 +114,42 @@ void ExecuteBinaryGeometry(DataChunk &args, ExpressionState &state, Vector &resu
 	    });
 }
 
+template <BoostGeometry (*FUNC)(const BoostGeometry &, const BoostGeometry &)>
+void ExecuteBinaryGeometryEmptyAsNull(DataChunk &args, ExpressionState &state, Vector &result) {
+	BinaryExecutor::Execute<string_t, string_t, string_t>(
+	    args.data[0], args.data[1], result, args.size(),
+	    [&](const string_t &lhs, const string_t &rhs) -> optional<string_t> {
+		    try {
+			    return Serialize(result, FUNC(Deserialize(lhs), Deserialize(rhs)));
+		    } catch (const boost::geometry::empty_input_exception &) {
+			    return {};
+		    }
+	    });
+}
+
+template <BoostGeometry (*FUNC)(const BoostGeometry &)>
+void ExecuteUnaryGeometryKeepEmpty(DataChunk &args, ExpressionState &state, Vector &result) {
+	UnaryExecutor::Execute<string_t, string_t>(args.data[0], result, args.size(), [&](const string_t &blob) {
+		const auto geom = Deserialize(blob);
+		if (IsEmptyGeometry(geom)) {
+			return StringVector::AddStringOrBlob(result, blob);
+		}
+		return Serialize(result, FUNC(geom));
+	});
+}
+
+template <BoostGeometry (*FUNC)(const BoostGeometry &)>
+void ExecuteUnaryGeometryCollectionAsNull(DataChunk &args, ExpressionState &state, Vector &result) {
+	UnaryExecutor::Execute<string_t, string_t>(args.data[0], result, args.size(),
+	                                           [&](const string_t &blob) -> optional<string_t> {
+		                                           const auto geom = Deserialize(blob);
+		                                           if (geom.IsCollection()) {
+			                                           return {};
+		                                           }
+		                                           return Serialize(result, FUNC(geom));
+	                                           });
+}
+
 template <BoostGeometry (*FUNC)(const BoostGeometry &)>
 void ExecuteUnaryGeometry(DataChunk &args, ExpressionState &state, Vector &result) {
 	UnaryExecutor::Execute<string_t, string_t>(args.data[0], result, args.size(), [&](const string_t &blob) {
@@ -327,9 +363,9 @@ void RegisterBoostModule(ExtensionLoader &loader) {
 	                       "Returns the part of the first geometry that the second does not cover");
 	RegisterBinaryGeometry(loader, "ST_SymDifference", ExecuteOverlay<BoostOverlay::SYM_DIFFERENCE>,
 	                       "Returns the parts of both geometries that the other does not cover");
-	RegisterBinaryGeometry(loader, "ST_ClosestPoint", ExecuteBinaryGeometry<ClosestPoint>,
+	RegisterBinaryGeometry(loader, "ST_ClosestPoint", ExecuteBinaryGeometryEmptyAsNull<ClosestPoint>,
 	                       "Returns the point on the first geometry closest to the second");
-	RegisterBinaryGeometry(loader, "ST_ShortestLine", ExecuteBinaryGeometry<ShortestLine>,
+	RegisterBinaryGeometry(loader, "ST_ShortestLine", ExecuteBinaryGeometryEmptyAsNull<ShortestLine>,
 	                       "Returns the shortest line between the two geometries");
 
 	RegisterUnaryGeometry(loader, "ST_ConvexHull", ExecuteUnaryGeometry<ConvexHull>,
@@ -338,9 +374,7 @@ void RegisterBoostModule(ExtensionLoader &loader) {
 	                      "Returns the bounding rectangle of the geometry");
 	RegisterUnaryGeometry(loader, "ST_PointOnSurface", ExecuteUnaryGeometry<PointOnSurface>,
 	                      "Returns a point guaranteed to lie on the geometry");
-	RegisterUnaryGeometry(loader, "ST_Reverse", ExecuteUnaryGeometry<Reverse>,
-	                      "Returns the geometry with its vertex order reversed");
-	RegisterUnaryGeometry(loader, "ST_Boundary", ExecuteUnaryGeometry<Boundary>,
+	RegisterUnaryGeometry(loader, "ST_Boundary", ExecuteUnaryGeometryCollectionAsNull<Boundary>,
 	                      "Returns the boundary of the geometry");
 	RegisterUnaryGeometry(loader, "ST_Normalize", ExecuteUnaryGeometry<Normalize>,
 	                      "Returns the geometry with its rings in canonical orientation");
