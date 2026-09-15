@@ -4849,8 +4849,15 @@ struct ST_GeomFromWKB {
 		reader.set_allow_mixed_zm(true);
 		reader.set_nan_as_empty(true);
 
+		const auto &input_validity = FlatVector::Validity(input);
+		const auto input_data = FlatVector::GetDataMutable<string_t>(input);
+
 		for (idx_t i = 0; i < count; i++) {
-			const auto &wkb = FlatVector::GetDataMutable<string_t>(input)[i];
+			if (!input_validity.RowIsValid(i)) {
+				FlatVector::SetNull(result, i, true);
+				continue;
+			}
+			const auto &wkb = input_data[i];
 
 			const auto wkb_ptr = wkb.GetDataUnsafe();
 			const auto wkb_len = wkb.GetSize();
@@ -4891,6 +4898,7 @@ struct ST_GeomFromWKB {
 		auto &inner = ListVector::GetChildMutable(result);
 		const auto lines = FlatVector::GetDataMutable<list_entry_t>(result);
 		const auto wkb_data = FlatVector::GetDataMutable<string_t>(wkb_blobs);
+		const auto &wkb_validity = FlatVector::Validity(wkb_blobs);
 
 		idx_t total_size = 0;
 
@@ -4899,6 +4907,12 @@ struct ST_GeomFromWKB {
 		reader.set_nan_as_empty(true);
 
 		for (idx_t i = 0; i < count; i++) {
+			if (!wkb_validity.RowIsValid(i)) {
+				lines[i].offset = total_size;
+				lines[i].length = 0;
+				FlatVector::SetNull(result, i, true);
+				continue;
+			}
 			auto wkb = wkb_data[i];
 
 			const auto wkb_ptr = wkb.GetDataUnsafe();
@@ -4958,6 +4972,7 @@ struct ST_GeomFromWKB {
 		auto &wkb_blobs = args.data[0];
 		wkb_blobs.Flatten();
 		auto wkb_data = FlatVector::GetDataMutable<string_t>(wkb_blobs);
+		const auto &wkb_validity = FlatVector::Validity(wkb_blobs);
 
 		// Set up output data
 		auto &ring_vec = ListVector::GetChildMutable(result);
@@ -4971,6 +4986,12 @@ struct ST_GeomFromWKB {
 		reader.set_nan_as_empty(true);
 
 		for (idx_t i = 0; i < count; i++) {
+			if (!wkb_validity.RowIsValid(i)) {
+				polygons[i].offset = total_ring_count;
+				polygons[i].length = 0;
+				FlatVector::SetNull(result, i, true);
+				continue;
+			}
 			auto wkb = wkb_data[i];
 
 			const auto wkb_ptr = wkb.GetDataUnsafe();
