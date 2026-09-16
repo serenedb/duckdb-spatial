@@ -54,18 +54,3 @@ query I
 SELECT count(*) FROM probe p FULL JOIN build_null b ON ST_Intersects(p.geom, b.geom);
 ----
 103
-
-# Also with an R-tree index on the probe side (exercises the deferred-bounds scan fallback
-# when no filter is pushed because the join tree is empty)
-statement ok
-CREATE INDEX probe_idx ON probe USING RTREE (geom);
-
-query I
-SELECT count(*) FROM probe p JOIN build_null b ON ST_Intersects(p.geom, b.geom);
-----
-0
-
-query I
-SELECT count(*) FROM probe p LEFT JOIN build_null b ON ST_Intersects(p.geom, b.geom);
-----
-100

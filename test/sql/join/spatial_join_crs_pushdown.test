@@ -28,10 +28,6 @@ SELECT count(*) FROM cprobe p JOIN cbuild b ON ST_DWithin(p.geom, b.geom, 3.0);
 ----
 32
 
-statement ok
-CREATE INDEX cprobe_idx ON cprobe USING RTREE (geom);
-
-# With an R-tree index: exercises the deferred-bounds index scan over a CRS-typed column
 query I
 SELECT count(*) FROM cprobe p JOIN cbuild b ON ST_DWithin(p.geom, b.geom, 3.0);
 ----

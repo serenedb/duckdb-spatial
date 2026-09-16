@@ -1,6 +1,8 @@
 #include "spatial/util/math.hpp"
 #include "duckdb/common/string_util.hpp"
 
+#include <charconv>
+
 namespace duckdb {
 
 #if SPATIAL_USE_GEOS
@@ -64,34 +66,63 @@ string MathUtil::format_coord(double x, double y, double z, double m) {
 
 #else
 
+static string FormatTrimmed(double d, int32_t precision) {
+	if (d == 0) {
+		d = 0;
+	}
+	auto str = StringUtil::Format(StringUtil::Format("%%.%df", precision), d);
+	const auto dot = str.find('.');
+	if (dot == string::npos) {
+		return str;
+	}
+	auto last = str.find_last_not_of('0');
+	if (last == dot) {
+		last--;
+	}
+	str.erase(last + 1);
+	return str;
+}
+
 void MathUtil::format_coord(double x, double y, vector<char> &buffer, int32_t precision) {
 	D_ASSERT(precision >= 0 && precision <= 15);
-	auto fmt_str = StringUtil::Format("%%.%df %%.%df", precision, precision);
-	auto str = StringUtil::Format(fmt_str, x, y);
+	const auto str = FormatTrimmed(x, precision) + " " + FormatTrimmed(y, precision);
 	buffer.insert(buffer.end(), str.c_str(), str.c_str() + str.size());
 }
 
 void MathUtil::format_coord(double d, vector<char> &buffer, int32_t precision) {
 	D_ASSERT(precision >= 0 && precision <= 15);
-	auto fmt_str = StringUtil::Format("%%.%df", precision);
-	auto str = StringUtil::Format(fmt_str, d);
+	const auto str = FormatTrimmed(d, precision);
 	buffer.insert(buffer.end(), str.c_str(), str.c_str() + str.size());
 }
 
+static string FormatShortest(double d) {
+	if (d == 0) {
+		d = 0;
+	}
+	char buf[64];
+	const auto res = std::to_chars(buf, buf + sizeof(buf), d);
+	string str(buf, res.ptr);
+	const auto dot = str.find('.');
+	if (dot != string::npos && str.find('e') == string::npos && str.size() - dot - 1 > 15) {
+		return FormatTrimmed(d, 15);
+	}
+	return str;
+}
+
 string MathUtil::format_coord(double d) {
-	return StringUtil::Format("%G", d);
+	return FormatShortest(d);
 }
 
 string MathUtil::format_coord(double x, double y) {
-	return StringUtil::Format("%G %G", x, y);
+	return FormatShortest(x) + " " + FormatShortest(y);
 }
 
 string MathUtil::format_coord(double x, double y, double zm) {
-	return StringUtil::Format("%G %G %G", x, y, zm);
+	return FormatShortest(x) + " " + FormatShortest(y) + " " + FormatShortest(zm);
 }
 
 string MathUtil::format_coord(double x, double y, double z, double m) {
-	return StringUtil::Format("%G %G %G %G", x, y, z, m);
+	return FormatShortest(x) + " " + FormatShortest(y) + " " + FormatShortest(z) + " " + FormatShortest(m);
 }
 
 #endif
