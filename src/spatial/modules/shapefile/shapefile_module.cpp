@@ -902,7 +902,7 @@ struct ST_ReadSHP {
 		InsertionOrderPreservingMap<string> tags;
 		tags.insert("ext", "spatial");
 		FunctionBuilder::AddTableFunctionDocs(loader, "ST_ReadSHP",
-		                                      "Read a Shapefile without relying on the GDAL library", "", tags);
+		                                      "Read a Shapefile into a table", "", tags);
 
 		// Replacement scan
 		auto &config = DBConfig::GetConfig(loader.GetDatabaseInstance());

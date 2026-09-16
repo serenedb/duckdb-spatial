@@ -5,8 +5,6 @@
 
 | Function | Summary |
 | --- | --- |
-| [`DuckDB_PROJ_Compiled_Version`](#duckdb_proj_compiled_version) | Returns a text description of the PROJ library version that that this instance of DuckDB was compiled against. |
-| [`DuckDB_Proj_Version`](#duckdb_proj_version) | Returns a text description of the PROJ library version that is being used by this instance of DuckDB. |
 | [`ST_Affine`](#st_affine) | Applies an affine transformation to a geometry. |
 | [`ST_Area`](#st_area) | Compute the area of a geometry. |
 | [`ST_Area_Spheroid`](#st_area_spheroid) | Returns the area of a geometry in meters, using an ellipsoidal model of the earth |
@@ -127,7 +125,6 @@
 | [`ST_SymDifference`](#st_symdifference) | Returns a geometry that represents the portions of two geometries that do not intersect |
 | [`ST_TileEnvelope`](#st_tileenvelope) | The `ST_TileEnvelope` scalar function generates tile envelope rectangular polygons from specified zoom level and tile indices. |
 | [`ST_Touches`](#st_touches) | Returns true if the geometries touch |
-| [`ST_Transform`](#st_transform) | Transforms a geometry between two coordinate systems |
 | [`ST_Union`](#st_union) | Returns the union of two geometries |
 | [`ST_VoronoiDiagram`](#st_voronoidiagram) | Returns the Voronoi diagram of the supplied MultiPoint geometry |
 | [`ST_Within`](#st_within) | Returns true if the first geometry is within the second |
@@ -173,70 +170,13 @@
 
 | Function | Summary |
 | --- | --- |
-| [`ST_Drivers`](#st_drivers) | Returns the list of supported GDAL drivers and file formats |
 | [`ST_GeneratePoints`](#st_generatepoints) | Generates a set of random points within the specified bounding box. |
-| [`ST_Read`](#st_read) | Read and import a variety of geospatial file formats using the GDAL library. |
 | [`ST_ReadOSM`](#st_readosm) | The `ST_ReadOsm()` table function enables reading compressed OpenStreetMap data directly from a `.osm.pbf file.` |
-| [`ST_ReadSHP`](#st_readshp) | Read a Shapefile without relying on the GDAL library |
-| [`ST_Read_Meta`](#st_read_meta) | Read the metadata from a variety of geospatial file formats using the GDAL library. |
+| [`ST_ReadSHP`](#st_readshp) | Read a Shapefile into a table |
 
 ----
 
 ## Scalar Functions
-
-### DuckDB_PROJ_Compiled_Version
-
-
-#### Signature
-
-```sql
-VARCHAR DuckDB_PROJ_Compiled_Version ()
-```
-
-#### Description
-
-Returns a text description of the PROJ library version that that this instance of DuckDB was compiled against.
-
-#### Example
-
-```sql
-SELECT duckdb_proj_compiled_version();
-┌────────────────────────────────┐
-│ duckdb_proj_compiled_version() │
-│            varchar             │
-├────────────────────────────────┤
-│ Rel. 9.1.1, December 1st, 2022 │
-└────────────────────────────────┘
-```
-
-----
-
-### DuckDB_Proj_Version
-
-
-#### Signature
-
-```sql
-VARCHAR DuckDB_Proj_Version ()
-```
-
-#### Description
-
-Returns a text description of the PROJ library version that is being used by this instance of DuckDB.
-
-#### Example
-
-```sql
-SELECT duckdb_proj_version();
-┌───────────────────────┐
-│ duckdb_proj_version() │
-│        varchar        │
-├───────────────────────┤
-│ 9.1.1                 │
-└───────────────────────┘
-```
-
-----
 
 ### ST_Affine
 
@@ -2682,87 +2622,6 @@ Returns true if the geometries touch
 
 ----
 
-### ST_Transform
-
-
-#### Signatures
-
-```sql
-BOX_2D ST_Transform (box BOX_2D, source_crs VARCHAR, target_crs VARCHAR)
-BOX_2D ST_Transform (box BOX_2D, source_crs VARCHAR, target_crs VARCHAR, always_xy BOOLEAN)
-POINT_2D ST_Transform (point POINT_2D, source_crs VARCHAR, target_crs VARCHAR)
-POINT_2D ST_Transform (point POINT_2D, source_crs VARCHAR, target_crs VARCHAR, always_xy BOOLEAN)
-GEOMETRY ST_Transform (geom GEOMETRY, source_crs VARCHAR, target_crs VARCHAR)
-GEOMETRY ST_Transform (geom GEOMETRY, source_crs VARCHAR, target_crs VARCHAR, always_xy BOOLEAN)
-```
-
-#### Description
-
-Transforms a geometry between two coordinate systems
-
-The source and target coordinate systems can be specified using any format that the [PROJ library](https://proj.org) supports.
-
-The third optional `always_xy` parameter can be used to force the input and output geometries to be interpreted as having a [easting, northing] coordinate axis order regardless of what the source and target coordinate system definition says. This is particularly useful when transforming to/from the [WGS84/EPSG:4326](https://en.wikipedia.org/wiki/World_Geodetic_System) coordinate system (what most people think of when they hear "longitude"/"latitude" or "GPS coordinates"), which is defined as having a [latitude, longitude] axis order even though [longitude, latitude] is commonly used in practice (e.g. in [GeoJSON](https://tools.ietf.org/html/rfc7946)). More details available in the [PROJ documentation](https://proj.org/en/9.3/faq.html#why-is-the-axis-ordering-in-proj-not-consistent).
-
-DuckDB spatial vendors its own static copy of the PROJ database of coordinate systems, so if you have your own installation of PROJ on your system the available coordinate systems may differ to what's available in other GIS software.
-
-#### Example
-
-```sql
--- Transform a geometry from EPSG:4326 to EPSG:3857 (WGS84 to WebMercator)
--- Note that since WGS84 is defined as having a [latitude, longitude] axis order
--- we follow the standard and provide the input geometry using that axis order,
--- but the output will be [easting, northing] because that is what's defined by
--- WebMercator.
-
-SELECT
-    ST_Transform(
-        st_point(52.373123, 4.892360),
-        'EPSG:4326',
-        'EPSG:3857'
-    );
-----
-POINT (544615.0239773799 6867874.103539125)
-
--- Alternatively, let's say we got our input point from e.g. a GeoJSON file,
--- which uses WGS84 but with [longitude, latitude] axis order. We can use the
--- `always_xy` parameter to force the input geometry to be interpreted as having
--- a [northing, easting] axis order instead, even though the source coordinate
--- reference system definition (WGS84) says otherwise.
-
-SELECT 
-    ST_Transform(
-        -- note the axis order is reversed here
-        st_point(4.892360, 52.373123),
-        'EPSG:4326',
-        'EPSG:3857',
-        always_xy := true
-    );
-----
-POINT (544615.0239773799 6867874.103539125)
-
--- Transform a geometry from OSG36 British National Grid EPSG:27700 to EPSG:4326 WGS84
--- Standard transform is often fine for the first few decimal places before being wrong
--- which could result in an error starting at about 10m and possibly much more
-SELECT ST_Transform(bng, 'EPSG:27700', 'EPSG:4326', xy := true) AS without_grid_file
-FROM (SELECT ST_GeomFromText('POINT( 170370.718 11572.405 )') AS bng);
-----
-POINT (-5.202992651563592 49.96007490162923)
-
--- By using an official NTv2 grid file, we can reduce the error down around the 9th decimal place
--- which in theory is below a millimetre, and in practise unlikely that your coordinates are that precise
--- British National Grid "NTv2 format files" download available here:
--- https://www.ordnancesurvey.co.uk/products/os-net/for-developers
-SELECT ST_Transform(bng
-    , '+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +units=m +no_defs +nadgrids=/full/path/to/OSTN15-NTv2/OSTN15_NTv2_OSGBtoETRS.gsb +type=crs'
-    , 'EPSG:4326', xy := true) AS with_grid_file
-FROM (SELECT ST_GeomFromText('POINT( 170370.718 11572.405 )') AS bng) t;
-----
-POINT (-5.203046090608746 49.96006137018598)
-```
-
-----
-
 ### ST_Union
 
 
@@ -3421,30 +3280,6 @@ GEOMETRY ST_Translate (geom GEOMETRY, dx double, dy double)
 
 ## Table Functions
 
-### ST_Drivers
-
-#### Signature
-
-```sql
-ST_Drivers ()
-```
-
-#### Description
-
-Returns the list of supported GDAL drivers and file formats
-
-Note that far from all of these drivers have been tested properly.
-Some may require additional options to be passed to work as expected.
-If you run into any issues please first consult the [consult the GDAL docs](https://gdal.org/drivers/vector/index.html).
-
-#### Example
-
-```sql
-SELECT * FROM ST_Drivers();
-```
-
-----
-
 ### ST_GeneratePoints
 
 #### Signature
@@ -3464,66 +3299,6 @@ Takes a bounding box (min_x, min_y, max_x, max_y), a count of points to generate
 
 ```sql
 SELECT * FROM ST_GeneratePoints({min_x: 0, min_y:0, max_x:10, max_y:10}::BOX_2D, 5, 42);
-```
-
-----
-
-### ST_Read
-
-#### Signature
-
-```sql
-ST_Read (col0 VARCHAR, keep_wkb BOOLEAN, max_batch_size INTEGER, sequential_layer_scan BOOLEAN, layer VARCHAR, sibling_files VARCHAR[], spatial_filter WKB_BLOB, spatial_filter_box BOX_2D, allowed_drivers VARCHAR[], open_options VARCHAR[])
-```
-
-#### Description
-
-Read and import a variety of geospatial file formats using the GDAL library.
-
-The `ST_Read` table function is based on the [GDAL](https://gdal.org/index.html) translator library and enables reading spatial data from a variety of geospatial vector file formats as if they were DuckDB tables.
-
-> See [ST_Drivers](#st_drivers) for a list of supported file formats and drivers.
-
-Except for the `path` parameter, all parameters are optional.
-
-| Parameter | Type | Description |
-| --------- | -----| ----------- |
-| `path` | VARCHAR | The path to the file to read. Mandatory |
-| `sequential_layer_scan` | BOOLEAN | If set to true, the table function will scan through all layers sequentially and return the first layer that matches the given layer name. This is required for some drivers to work properly, e.g., the OSM driver. |
-| `spatial_filter` | WKB_BLOB | If set to a WKB blob, the table function will only return rows that intersect with the given WKB geometry. Some drivers may support efficient spatial filtering natively, in which case it will be pushed down. Otherwise the filtering is done by GDAL which may be much slower. |
-| `open_options` | VARCHAR[] | A list of key-value pairs that are passed to the GDAL driver to control the opening of the file. E.g., the GeoJSON driver supports a FLATTEN_NESTED_ATTRIBUTES=YES option to flatten nested attributes. |
-| `layer` | VARCHAR | The name of the layer to read from the file. If NULL, the first layer is returned. Can also be a layer index (starting at 0). |
-| `allowed_drivers` | VARCHAR[] | A list of GDAL driver names that are allowed to be used to open the file. If empty, all drivers are allowed. |
-| `sibling_files` | VARCHAR[] | A list of sibling files that are required to open the file. E.g., the ESRI Shapefile driver requires a .shx file to be present. Although most of the time these can be discovered automatically. |
-| `spatial_filter_box` | BOX_2D | If set to a BOX_2D, the table function will only return rows that intersect with the given bounding box. Similar to spatial_filter. |
-| `keep_wkb` | BOOLEAN | If set, the table function will return geometries in a wkb_geometry column with the type WKB_BLOB (which can be cast to BLOB) instead of GEOMETRY. This is useful if you want to use DuckDB with more exotic geometry subtypes that DuckDB spatial doesnt support representing in the GEOMETRY type yet. |
-
-Note that GDAL is single-threaded, so this table function will not be able to make full use of parallelism.
-
-By using `ST_Read`, the spatial extension also provides “replacement scans” for common geospatial file formats, allowing you to query files of these formats as if they were tables directly.
-
-```sql
-SELECT * FROM './path/to/some/shapefile/dataset.shp';
-```
-
-In practice this is just syntax-sugar for calling ST_Read, so there is no difference in performance. If you want to pass additional options, you should use the ST_Read table function directly.
-
-The following formats are currently recognized by their file extension:
-
-| Format | Extension |
-| ------ | --------- |
-| ESRI ShapeFile | .shp |
-| GeoPackage | .gpkg |
-| FlatGeoBuf | .fgb |
-
-#### Example
-
-```sql
--- Read a Shapefile
-SELECT * FROM ST_Read('some/file/path/filename.shp');
-
--- Read a GeoJSON file
-CREATE TABLE my_geojson_table AS SELECT * FROM ST_Read('some/file/path/filename.json');
 ```
 
 ----
@@ -3579,35 +3354,6 @@ ST_ReadSHP (col0 VARCHAR, encoding VARCHAR)
 
 #### Description
 
-Read a Shapefile without relying on the GDAL library
+Read a Shapefile into a table
 
 ----
-
-### ST_Read_Meta
-
-#### Signature
-
-```sql
-ST_Read_Meta (col0 VARCHAR)
-ST_Read_Meta (col0 VARCHAR[])
-```
-
-#### Description
-
-Read the metadata from a variety of geospatial file formats using the GDAL library.
-
-The `ST_Read_Meta` table function accompanies the `ST_Read` table function, but instead of reading the contents of a file, this function scans the metadata instead.
-Since the data model of the underlying GDAL library is quite flexible, most of the interesting metadata is within the returned `layers` column, which is a somewhat complex nested structure of DuckDB `STRUCT` and `LIST` types.
-
-#### Example
-
-```sql
--- Find the coordinate reference system authority name and code for the first layers first geometry column in the file
-SELECT
-    layers[1].geometry_fields[1].crs.auth_name as name,
-    layers[1].geometry_fields[1].crs.auth_code as code
-FROM st_read_meta('../../tmp/data/amsterdam_roads.fgb');
-```
-
-----
-

@@ -220,7 +220,7 @@ public:
 		auto &table_info = *table.GetStorage().GetDataTableInfo();
 		unique_ptr<RTreeIndexScanBindData> bind_data = nullptr;
 
-		identifier_set_t spatial_predicates = {
+		static const case_insensitive_set_view_t spatial_predicates = {
 		    "ST_Equals",   "ST_Intersects", "ST_Touches",   "ST_Crosses",          "ST_Within", "ST_Contains",
 		    "ST_Overlaps", "ST_Covers",     "ST_CoveredBy", "ST_ContainsProperly", "&&",        "ST_Intersects_Extent"};
 
@@ -247,7 +247,7 @@ public:
 			}
 
 			FunctionExpressionMatcher matcher;
-			matcher.function = make_uniq<ManyFunctionMatcher>(spatial_predicates);
+			matcher.function = make_uniq<ManyFunctionMatcher>(&spatial_predicates);
 			matcher.expr_type = make_uniq<SpecificExpressionTypeMatcher>(ExpressionType::BOUND_FUNCTION);
 			matcher.policy = SetMatcher::Policy::UNORDERED;
 

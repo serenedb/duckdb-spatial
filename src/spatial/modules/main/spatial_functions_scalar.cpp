@@ -1638,18 +1638,18 @@ struct ST_Collect {
 		child_vec.ToUnifiedFormat(input_vdata);
 
 		UnaryExecutor::Execute<list_entry_t, string_t>(
-		    args.data[0], result, args.size(), [&](const list_entry_t &entry) {
+		    args.data[0], result, args.size(), [&](const list_entry_t &entry) -> optional<string_t> {
 			    const auto offset = entry.offset;
 			    const auto length = entry.length;
 
 			    if (length == 0) {
-				    const sgl::geometry empty(sgl::geometry_type::GEOMETRY_COLLECTION, false, false);
-				    return lstate.Serialize(result, empty);
+				    return optional<string_t>();
 			    }
 
 			    // First figure out if we have Z or M
 			    bool has_z = false;
 			    bool has_m = false;
+			    idx_t valid_count = 0;
 
 			    // First pass, check if we have Z or M
 			    for (idx_t out_idx = offset; out_idx < offset + length; out_idx++) {
@@ -1657,6 +1657,7 @@ struct ST_Collect {
 				    if (!input_vdata.validity.RowIsValid(row_idx)) {
 					    continue;
 				    }
+				    valid_count++;
 
 				    auto &blob = UnifiedVectorFormat::GetData<string_t>(input_vdata)[row_idx];
 
@@ -1665,6 +1666,10 @@ struct ST_Collect {
 				    lstate.Deserialize(blob, geom);
 				    has_z = has_z || geom.has_z();
 				    has_m = has_m || geom.has_m();
+			    }
+
+			    if (valid_count == 0) {
+				    return optional<string_t>();
 			    }
 
 			    bool all_points = true;
@@ -1701,9 +1706,8 @@ struct ST_Collect {
 			    }
 
 			    if (collection.is_empty()) {
-				    // NULL's and EMPTY do not contribute to the result.
 				    sgl::geometry empty(sgl::geometry_type::GEOMETRY_COLLECTION, has_z, has_m);
-				    return lstate.Serialize(result, empty);
+				    return optional<string_t>(lstate.Serialize(result, empty));
 			    }
 
 			    // Figure out the type of the collection
@@ -1717,8 +1721,7 @@ struct ST_Collect {
 				    collection.set_type(sgl::geometry_type::GEOMETRY_COLLECTION);
 			    }
 
-			    // Serialize the collection
-			    return lstate.Serialize(result, collection);
+			    return optional<string_t>(lstate.Serialize(result, collection));
 		    });
 	}
 
@@ -1732,7 +1735,8 @@ struct ST_Collect {
 	- If all geometries are `POLYGON`'s, a `MULTIPOLYGON` is returned.
 	- Otherwise if the input collection contains a mix of geometry types, a `GEOMETRYCOLLECTION` is returned.
 
-	Empty and `NULL` geometries are ignored. If all geometries are empty or `NULL`, a `GEOMETRYCOLLECTION EMPTY` is returned.
+	`NULL` geometries are ignored. An empty list, or a list of only `NULL`s, returns `NULL`.
+	Empty geometries are ignored too; if every geometry is empty, a `GEOMETRYCOLLECTION EMPTY` is returned.
 	)";
 
 	static constexpr auto EXAMPLE = R"(
@@ -2636,7 +2640,7 @@ struct ST_DistanceWithin {
 	//------------------------------------------------------------------------------------------------------------------
 	// Bind
 	//------------------------------------------------------------------------------------------------------------------
-	class BindData final : public FunctionData {
+	class BindData final : public GeometryPredicateBindData {
 	public:
 		double distance = 0.0;
 		bool is_constant = false;
@@ -2645,12 +2649,17 @@ struct ST_DistanceWithin {
 		}
 
 		unique_ptr<FunctionData> Copy() const override {
-			return make_uniq<BindData>(distance, is_constant);
+			auto copy = make_uniq<BindData>(distance, is_constant);
+			copy->has_const = has_const;
+			copy->column_idx = column_idx;
+			copy->const_extent = const_extent;
+			return std::move(copy);
 		}
 
 		bool Equals(const FunctionData &other) const override {
 			auto &other_data = other.Cast<BindData>();
-			return is_constant == other_data.is_constant && distance == other_data.distance;
+			return is_constant == other_data.is_constant && distance == other_data.distance &&
+			       GeometryPredicateBindData::Equals(other);
 		}
 
 		static void Serialize(Serializer &serializer, const optional_ptr<FunctionData> bind_data_p,
@@ -2668,7 +2677,6 @@ struct ST_DistanceWithin {
 		}
 	};
 
-	// We try to constant-fold the distance parameter here, because it's a very common have a constant distance
 	static unique_ptr<FunctionData> Bind(BindScalarFunctionInput &input) {
 
 		auto &arguments = input.GetArguments();
@@ -2679,9 +2687,10 @@ struct ST_DistanceWithin {
 			const auto dist_expr = ExpressionExecutor::EvaluateScalar(context, *arguments.back());
 			const auto dist_value = dist_expr.GetValue<double>();
 
-			// Erase argument
 			Function::EraseArgument(bound_function, arguments, 2);
-			return make_uniq<BindData>(dist_value, true);
+			auto bind = make_uniq<BindData>(dist_value, true);
+			TryCaptureGeometryPredicateConstant(input, true, *bind);
+			return std::move(bind);
 		}
 
 		return make_uniq<BindData>(0.0, false);
@@ -3561,6 +3570,53 @@ struct ST_ExteriorRing {
 //======================================================================================================================
 // ST_FlipCoordinates
 //======================================================================================================================
+
+struct ST_Reverse {
+
+	//------------------------------------------------------------------------------------------------------------------
+	// GEOMETRY
+	//------------------------------------------------------------------------------------------------------------------
+	// Reversing is pure vertex reordering, so it runs on the serialized form. Routing it through Boost would lose the
+	// result: the Boost model pins ring orientation and normalises it on every deserialize, which undoes the reversal
+	// of a polygon. Staying here also keeps Z and M, which the Boost round-trip drops.
+	static void ExecuteGeometry(DataChunk &args, ExpressionState &state, Vector &result) {
+		auto &input = args.data[0];
+		const auto count = args.size();
+
+		UnaryExecutor::Execute<string_t, string_t>(input, result, count, [&](const string_t &blob) {
+			auto &lstate = LocalState::ResetAndGet(state);
+
+			sgl::geometry geom;
+			lstate.Deserialize(blob, geom);
+
+			sgl::ops::reverse_vertices(lstate.GetAllocator(), geom);
+
+			return lstate.Serialize(result, geom);
+		});
+	}
+
+	//------------------------------------------------------------------------------------------------------------------
+	// Register
+	//------------------------------------------------------------------------------------------------------------------
+	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "ST_Reverse", [](ScalarFunctionBuilder &func) {
+			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
+				variant.AddParameter("geom", LogicalType::GEOMETRY());
+				variant.SetReturnType(LogicalType::GEOMETRY());
+				variant.SetBind(GeoTypes::PropagateCRS);
+
+				variant.SetInit(LocalState::Init);
+				variant.SetFunction(ExecuteGeometry);
+
+				variant.SetDescription("Returns the geometry with the order of its vertices reversed");
+				variant.SetExample("SELECT ST_AsText(ST_Reverse('LINESTRING(0 0, 1 1)'::GEOMETRY));");
+			});
+
+			func.SetTag("ext", "spatial");
+			func.SetTag("category", "construction");
+		});
+	}
+};
 
 struct ST_FlipCoordinates {
 
@@ -4590,15 +4646,6 @@ struct ST_GeomFromGeoJSON {
 	static void Register(ExtensionLoader &loader) {
 		FunctionBuilder::RegisterScalar(loader, "ST_GeomFromGeoJSON", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
-				variant.AddParameter("geojson", LogicalType::JSON());
-				variant.SetReturnType(LogicalType::GEOMETRY());
-
-				variant.SetInit(LocalState::Init);
-				variant.SetFunction(Execute);
-				variant.CanThrowErrors();
-			});
-
-			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.AddParameter("geojson", LogicalType::VARCHAR);
 				variant.SetReturnType(LogicalType::GEOMETRY());
 
@@ -4811,8 +4858,15 @@ struct ST_GeomFromWKB {
 		reader.set_allow_mixed_zm(true);
 		reader.set_nan_as_empty(true);
 
+		const auto &input_validity = FlatVector::Validity(input);
+		const auto input_data = FlatVector::GetDataMutable<string_t>(input);
+
 		for (idx_t i = 0; i < count; i++) {
-			const auto &wkb = FlatVector::GetDataMutable<string_t>(input)[i];
+			if (!input_validity.RowIsValid(i)) {
+				FlatVector::SetNull(result, i, true);
+				continue;
+			}
+			const auto &wkb = input_data[i];
 
 			const auto wkb_ptr = wkb.GetDataUnsafe();
 			const auto wkb_len = wkb.GetSize();
@@ -4853,6 +4907,7 @@ struct ST_GeomFromWKB {
 		auto &inner = ListVector::GetChildMutable(result);
 		const auto lines = FlatVector::GetDataMutable<list_entry_t>(result);
 		const auto wkb_data = FlatVector::GetDataMutable<string_t>(wkb_blobs);
+		const auto &wkb_validity = FlatVector::Validity(wkb_blobs);
 
 		idx_t total_size = 0;
 
@@ -4861,6 +4916,12 @@ struct ST_GeomFromWKB {
 		reader.set_nan_as_empty(true);
 
 		for (idx_t i = 0; i < count; i++) {
+			if (!wkb_validity.RowIsValid(i)) {
+				lines[i].offset = total_size;
+				lines[i].length = 0;
+				FlatVector::SetNull(result, i, true);
+				continue;
+			}
 			auto wkb = wkb_data[i];
 
 			const auto wkb_ptr = wkb.GetDataUnsafe();
@@ -4920,6 +4981,7 @@ struct ST_GeomFromWKB {
 		auto &wkb_blobs = args.data[0];
 		wkb_blobs.Flatten();
 		auto wkb_data = FlatVector::GetDataMutable<string_t>(wkb_blobs);
+		const auto &wkb_validity = FlatVector::Validity(wkb_blobs);
 
 		// Set up output data
 		auto &ring_vec = ListVector::GetChildMutable(result);
@@ -4933,6 +4995,12 @@ struct ST_GeomFromWKB {
 		reader.set_nan_as_empty(true);
 
 		for (idx_t i = 0; i < count; i++) {
+			if (!wkb_validity.RowIsValid(i)) {
+				polygons[i].offset = total_ring_count;
+				polygons[i].length = 0;
+				FlatVector::SetNull(result, i, true);
+				continue;
+			}
 			auto wkb = wkb_data[i];
 
 			const auto wkb_ptr = wkb.GetDataUnsafe();
@@ -6587,7 +6655,7 @@ struct ST_Intersects_Extent {
 				variant.AddParameter("geom2", LogicalType::GEOMETRY());
 				variant.SetReturnType(LogicalType::BOOLEAN);
 
-				variant.SetBind(GeoTypes::PropagateCRS);
+				variant.SetBind(GeoTypes::PropagateCRS<BindGeometryPredicateOperands<true>>);
 				variant.SetInit(LocalState::Init);
 				variant.SetFunction(Execute);
 				variant.SetFilterPrune(GeometryPredicatePruneCallback<GeometryPredicateBBox::INTERSECTS>);
@@ -9538,6 +9606,7 @@ void RegisterSpatialScalarFunctions(ExtensionLoader &loader) {
 	// Op_IntersectApprox::Register(loader);
 	ST_ExteriorRing::Register(loader);
 	ST_FlipCoordinates::Register(loader);
+	ST_Reverse::Register(loader);
 	ST_Force2D::Register(loader);
 	ST_Force3DZ::Register(loader);
 	ST_Force3DM::Register(loader);

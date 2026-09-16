@@ -1,5 +1,8 @@
 #pragma once
 
+#include "duckdb/function/function.hpp"
+#include "duckdb/execution/expression_executor.hpp"
+
 #include "duckdb/common/types/geometry.hpp"
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb/planner/expression.hpp"
@@ -60,26 +63,82 @@ inline bool GeometryExtentIsEmpty(const GeometryExtent &extent) {
 //! - exactly one of the first two arguments must be a (folded) constant
 //! - statistics must be available for both.
 //! Returns false if the operands don't match that shape (e.g. a spatial join, or both operands constant).
+struct GeometryPredicateBindData : public FunctionData {
+	bool has_const = false;
+	idx_t column_idx = 0;
+	GeometryExtent const_extent = GeometryExtent::Empty();
+
+	unique_ptr<FunctionData> Copy() const override {
+		auto copy = make_uniq<GeometryPredicateBindData>();
+		copy->has_const = has_const;
+		copy->column_idx = column_idx;
+		copy->const_extent = const_extent;
+		return std::move(copy);
+	}
+	bool Equals(const FunctionData &other_p) const override {
+		auto &other = other_p.Cast<GeometryPredicateBindData>();
+		return has_const == other.has_const && column_idx == other.column_idx &&
+		       const_extent.x_min == other.const_extent.x_min && const_extent.x_max == other.const_extent.x_max &&
+		       const_extent.y_min == other.const_extent.y_min && const_extent.y_max == other.const_extent.y_max;
+	}
+};
+
+inline bool TryCaptureGeometryPredicateConstant(BindScalarFunctionInput &input, bool symmetric,
+                                                GeometryPredicateBindData &bind) {
+	auto &arguments = input.GetArguments();
+	if (arguments.size() < 2) {
+		return false;
+	}
+	const auto is_const = [](const Expression &expr) { return expr.IsFoldable() && !expr.IsVolatile(); };
+	const bool first_const = is_const(*arguments[0]);
+	const bool second_const = is_const(*arguments[1]);
+	if (first_const == second_const) {
+		return false;
+	}
+	if (first_const) {
+		if (!symmetric) {
+			return false;
+		}
+		std::swap(arguments[0], arguments[1]);
+	}
+	Value constant;
+	if (!ExpressionExecutor::TryEvaluateScalar(input.GetClientContext(), *arguments[1], constant)) {
+		return false;
+	}
+	bind.has_const = true;
+	bind.column_idx = 0;
+	bind.const_extent = GeometryExtent::Empty();
+	if (!constant.IsNull() && constant.type().id() == LogicalTypeId::GEOMETRY) {
+		const auto &wkb = StringValue::Get(constant);
+		Geometry::GetExtent(string_t(wkb), bind.const_extent);
+	}
+	return true;
+}
+
+template <bool SYMMETRIC>
+unique_ptr<FunctionData> BindGeometryPredicateOperands(BindScalarFunctionInput &input) {
+	auto bind = make_uniq<GeometryPredicateBindData>();
+	if (!TryCaptureGeometryPredicateConstant(input, SYMMETRIC, *bind)) {
+		return nullptr;
+	}
+	return std::move(bind);
+}
+
 inline bool TryGetGeometryPredicateOperands(const FunctionStatisticsPruneInput &input,
                                             GeometryPredicateOperands &operands) {
-	auto &children = input.function.GetChildren();
-	if (children.size() < 2) {
+	if (!input.bind_data) {
 		return false;
 	}
-	// Constants are folded by the time we get here, so the constant operand is a plain BoundConstantExpression.
-	const bool lhs_const = children[0]->GetExpressionType() == ExpressionType::VALUE_CONSTANT;
-	const bool rhs_const = children[1]->GetExpressionType() == ExpressionType::VALUE_CONSTANT;
-	if (lhs_const == rhs_const) {
-		// Need exactly one constant operand and one column operand.
+	auto bind = dynamic_cast<const GeometryPredicateBindData *>(input.bind_data.get());
+	if (!bind || !bind->has_const || bind->column_idx != 0) {
 		return false;
 	}
-	operands.column_idx = lhs_const ? 1 : 0;
-	operands.column_stats = input.ChildStats(operands.column_idx);
-	const auto constant_stats = input.ChildStats(1 - operands.column_idx);
-	if (!operands.column_stats || !constant_stats || constant_stats->GetStatsType() != StatisticsType::GEOMETRY_STATS) {
+	if (input.stats.GetStatsType() != StatisticsType::GEOMETRY_STATS) {
 		return false;
 	}
-	operands.const_extent = GeometryStats::GetExtent(*constant_stats);
+	operands.column_idx = 0;
+	operands.column_stats = &input.stats;
+	operands.const_extent = bind->const_extent;
 	return true;
 }
 

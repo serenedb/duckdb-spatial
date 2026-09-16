@@ -1010,14 +1010,12 @@ struct ST_AsMVT {
 		MVTLayer layer;
 	};
 
-	static idx_t StateSize(AggregateStateInput &) {
+	static idx_t StateSize(const BoundAggregateFunction &) {
 		return sizeof(State);
 	}
 
-	static void Initialize(AggregateStateInput &, data_ptr_t *states, idx_t count) {
-		for (idx_t i = 0; i < count; i++) {
-			new (states[i]) State();
-		}
+	static void Initialize(const BoundAggregateFunction &, data_ptr_t state) {
+		new (state) State();
 	}
 
 	//------------------------------------------------------------------------------------------------------------------
