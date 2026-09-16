@@ -686,6 +686,8 @@ void visit_polygon_geometries(const geometry &geom, void *state, void (*callback
 // the x and y coordinates are swapped.
 void flip_vertices(allocator &allocator, geometry &geom);
 
+void reverse_vertices(allocator &allocator, geometry &geom);
+
 // Transforms the vertices of the geometry using the affine matrix, by replacing all vertex arrays with a new array
 // with the transformed vertices.
 void affine_transform(allocator &allocator, geometry &geom, const affine_matrix &matrix);

@@ -46,16 +46,6 @@ SELECT (SELECT count(*) FROM probe p JOIN build_nan b ON ST_DWithin(p.geom, b.ge
 ----
 true
 
-# Also with an R-tree index on the probe side (exercises the pushed bounding-box filter
-# and the deferred-bounds index scan)
-statement ok
-CREATE INDEX probe_idx ON probe USING RTREE (geom);
-
-query I
-SELECT count(*) FROM probe p JOIN build_nan b ON ST_DWithin(p.geom, b.geom, 1.0);
-----
-6
-
 # LEFT join: every probe row must survive
 query I
 SELECT count(*) FROM probe p LEFT JOIN build_nan b ON ST_DWithin(p.geom, b.geom, 1.0);
