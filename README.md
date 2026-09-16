@@ -63,10 +63,6 @@ You can then invoke the built DuckDB (with the extension statically linked):
 
 Please see the Makefile for more options, or the extension template documentation for more details.
 
-# Example Usage
-
-Please see the [example](docs/example.md) for an example on how to use the extension.
-
 # Supported Functions and Documentation
 
 The full list of functions and their documentation is available in the [function reference](docs/functions.md)

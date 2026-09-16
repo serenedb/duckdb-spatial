@@ -6,6 +6,8 @@
 #include "spatial/util/function_builder.hpp"
 #include "spatial/util/geometry_predicate_stats.hpp"
 
+#include "duckdb/execution/expression_executor.hpp"
+#include "duckdb/common/types/geometry.hpp"
 #include "duckdb/common/vector_operations/binary_executor.hpp"
 #include "duckdb/common/vector_operations/ternary_executor.hpp"
 #include "duckdb/common/vector_operations/unary_executor.hpp"
@@ -70,6 +72,18 @@ void ExecutePredicate(DataChunk &args, ExpressionState &state, Vector &result) {
 	    });
 }
 
+template <BoostPredicate PRED>
+constexpr bool IsSymmetricPredicate() {
+	return PRED == BoostPredicate::INTERSECTS || PRED == BoostPredicate::DISJOINT || PRED == BoostPredicate::TOUCHES ||
+	       PRED == BoostPredicate::CROSSES || PRED == BoostPredicate::OVERLAPS || PRED == BoostPredicate::EQUALS;
+}
+
+template <BoostPredicate PRED>
+unique_ptr<FunctionData> BindPredicate(BindScalarFunctionInput &input) {
+	GeoTypes::PropagateCRS(input);
+	return BindGeometryPredicateOperands<IsSymmetricPredicate<PRED>()>(input);
+}
+
 template <BoostPredicate PRED, GeometryPredicateBBox PRUNE>
 void RegisterPredicate(ExtensionLoader &loader, const char *name, const char *description) {
 	FunctionBuilder::RegisterScalar(loader, name, [&](ScalarFunctionBuilder &func) {
@@ -78,7 +92,7 @@ void RegisterPredicate(ExtensionLoader &loader, const char *name, const char *de
 			variant.AddParameter("geom2", LogicalType::GEOMETRY());
 			variant.SetReturnType(LogicalType::BOOLEAN);
 
-			variant.SetBind(GeoTypes::PropagateCRS);
+			variant.SetBind(BindPredicate<PRED>);
 			variant.SetFunction(ExecutePredicate<PRED>);
 			variant.SetFilterPrune(GeometryPredicatePruneCallback<PRUNE>);
 			variant.CanThrowErrors();

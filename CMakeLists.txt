@@ -8,15 +8,6 @@ set(CMAKE_CXX_STANDARD
     17
     CACHE STRING "C++ standard")
 
-if(EMSCRIPTEN)
-  # _LINKED_LIBS influences only Wasm compilation it's unclear why this is
-  # needed, but somehow the global symbol pj_release from PROJ is not properly
-  # exported otherwise this solves by basically re-linking (at the moment the
-  # Wasm binary is actually produced)
-  set(DUCKDB_EXTENSION_SPATIAL_LINKED_LIBS
-      "../../vcpkg_installed/wasm32-emscripten/lib/lib*.a")
-endif()
-
 project(${TARGET_NAME})
 
 add_definitions(-DDUCKDB_MAJOR_VERSION=${DUCKDB_MAJOR_VERSION})
@@ -25,9 +16,6 @@ add_definitions(-DDUCKDB_PATCH_VERSION=${DUCKDB_PATCH_VERSION})
 add_definitions(-DDUCKDB_SPATIAL_EXTENSION=1)
 
 # Options
-
-# Enable network functionality (OpenSSL and GDAL's CURL based fs/drivers)
-option(SPATIAL_USE_NETWORK "Enable network functionality" ON)
 
 # Enable GEOS support
 option(SPATIAL_USE_GEOS "Enable GEOS support" ON)
@@ -57,20 +45,6 @@ if(SPATIAL_USE_RTREE)
   add_definitions(-DSPATIAL_USE_RTREE=1)
 endif()
 
-# Enable PROJ support (ST_Transform, the *_Spheroid functions, named-CRS lookup)
-option(SPATIAL_USE_PROJ "Enable PROJ support" ON)
-
-# Enable GDAL support (ST_Read, ST_Read_Meta, ST_Drivers, COPY ... FORMAT GDAL).
-# GDAL calls into the PROJ module, so it cannot be enabled on its own.
-option(SPATIAL_USE_GDAL "Enable GDAL support" ON)
-
-if(SPATIAL_USE_GDAL AND NOT SPATIAL_USE_PROJ)
-  message(
-    FATAL_ERROR
-      "SPATIAL_USE_GDAL requires SPATIAL_USE_PROJ (the GDAL module calls IdentifyProjCRS)"
-  )
-endif()
-
 add_subdirectory(src/spatial)
 add_subdirectory(src/sgl)
 include_directories(src)
@@ -83,50 +57,16 @@ include_directories(src/third_party/protozero/include)
 include_directories(src/third_party/shapelib)
 add_subdirectory(src/third_party/shapelib)
 
+include_directories(src/third_party/geographiclib)
+add_subdirectory(src/third_party/geographiclib)
+
 add_library(${EXTENSION_NAME} STATIC ${EXTENSION_SOURCES})
 
 set(ZLIB_USE_STATIC_LIBS ON)
-set(OPENSSL_USE_STATIC_LIBS ON)
 find_package(ZLIB REQUIRED)
 
 # Important: The link order matters, its the reverse order of dependency
 set(EXTENSION_DEPENDENCIES "")
-
-if(SPATIAL_USE_GDAL)
-  message(STATUS "Building with GDAL functionality")
-  # annoyingly for expat on windows
-  set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES} MD.lib)
-  if(NOT TARGET GDAL::GDAL)
-    find_package(GDAL CONFIG REQUIRED)
-  endif()
-  # GDAL only reaches expat from its XML-based drivers (GML, KML, OSM); a build
-  # that leaves GDAL_USE_EXPAT off has nothing to link and should not require it.
-  if(GDAL_USE_EXPAT AND NOT TARGET EXPAT::EXPAT)
-    find_package(EXPAT REQUIRED)
-  endif()
-  list(APPEND EXTENSION_DEPENDENCIES GDAL::GDAL)
-  add_definitions(-DSPATIAL_USE_GDAL=1)
-endif()
-
-if(SPATIAL_USE_PROJ)
-  message(STATUS "Building with PROJ functionality")
-  if(NOT TARGET PROJ::proj)
-    find_package(PROJ CONFIG REQUIRED)
-  endif()
-  if(NOT TARGET unofficial::sqlite3::sqlite3)
-    find_package(unofficial-sqlite3 CONFIG REQUIRED)
-  endif()
-  list(APPEND EXTENSION_DEPENDENCIES PROJ::proj)
-  add_definitions(-DSPATIAL_USE_PROJ=1)
-endif()
-
-if(SPATIAL_USE_GDAL AND GDAL_USE_EXPAT)
-  list(APPEND EXTENSION_DEPENDENCIES EXPAT::EXPAT)
-endif()
-
-if(SPATIAL_USE_PROJ)
-  list(APPEND EXTENSION_DEPENDENCIES unofficial::sqlite3::sqlite3)
-endif()
 
 list(APPEND EXTENSION_DEPENDENCIES ZLIB::ZLIB)
 
@@ -145,24 +85,6 @@ if(SPATIAL_USE_BOOST)
     find_package(Boost REQUIRED)
   endif()
   list(APPEND EXTENSION_DEPENDENCIES Boost::headers)
-endif()
-
-if(EMSCRIPTEN)
-  message(STATUS "Building for Emscripten, disabling network functionality")
-  set(SPATIAL_USE_NETWORK OFF)
-endif()
-
-if(NOT SPATIAL_USE_GDAL)
-  # curl/openssl are only reachable through GDAL's fs/drivers
-  set(SPATIAL_USE_NETWORK OFF)
-endif()
-
-if(SPATIAL_USE_NETWORK)
-  message(STATUS "Building with network functionality")
-  message(STATUS "OpenSSL root dir hint: '$ENV{OPENSSL_ROOT_DIR}'")
-  find_package(OpenSSL REQUIRED)
-  find_package(CURL REQUIRED)
-  list(APPEND EXTENSION_DEPENDENCIES CURL::libcurl OpenSSL::SSL OpenSSL::Crypto)
 endif()
 
 if(WIN32)

@@ -2,9 +2,9 @@ require spatial
 
 # Test empty collection
 query I
-SElECT ST_Collect([]);
+SELECT ST_Collect([]);
 ----
-GEOMETRYCOLLECTION EMPTY
+NULL
 
 query I
 SELECT ST_AsText(ST_CollectionExtract(ST_GeomFromText('GEOMETRYCOLLECTION( POINT(0 0), LINESTRING(1 1, 2 2) )')));
