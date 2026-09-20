@@ -1,0 +1,9 @@
+# name: test/sql/mvt/st_asmvt_encoding.test
+# group: [mvt]
+
+require spatial
+
+query I
+SELECT hex(ST_AsMVT({'geom': ST_Point(1, 2), 'id': 7}::STRUCT(geom GEOMETRY, id INTEGER), 'layer'))
+----
+1A2178020A056C61796572120B12020000180122030902041A02696422022007288020

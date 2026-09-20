@@ -50,23 +50,20 @@ add_subdirectory(src/spatial)
 add_subdirectory(src/sgl)
 include_directories(src)
 
-include_directories(src/third_party/yyjson/include)
-add_subdirectory(src/third_party/yyjson)
-
-include_directories(src/third_party/protozero/include)
-
 include_directories(src/third_party/shapelib)
 add_subdirectory(src/third_party/shapelib)
 
 add_library(${EXTENSION_NAME} STATIC ${EXTENSION_SOURCES})
 
-set(ZLIB_USE_STATIC_LIBS ON)
-find_package(ZLIB REQUIRED)
+if(NOT TARGET ZLIB::ZLIB)
+  set(ZLIB_USE_STATIC_LIBS ON)
+  find_package(ZLIB REQUIRED)
+endif()
 
 # Important: The link order matters, its the reverse order of dependency
 set(EXTENSION_DEPENDENCIES "")
 
-list(APPEND EXTENSION_DEPENDENCIES ZLIB::ZLIB geographiclib)
+list(APPEND EXTENSION_DEPENDENCIES ZLIB::ZLIB protozero geographiclib)
 
 if(SPATIAL_USE_GEOS)
   message(STATUS "Building with GEOS functionality")
