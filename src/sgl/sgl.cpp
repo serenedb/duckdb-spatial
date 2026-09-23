@@ -2569,7 +2569,7 @@ void affine_transform(allocator &allocator, geometry &geom, const affine_matrix 
 		const auto old_vertex_array = part.get_vertex_array();
 		const auto new_vertex_array = static_cast<uint8_t *>(allocator.alloc(vertex_count * vertex_width));
 
-		vertex_xyzm vertex = {0, 0, 1, 1};
+		vertex_xyzm vertex = {0, 0, 0, 0};
 		for (uint32_t i = 0; i < vertex_count; i++) {
 			memcpy(&vertex, old_vertex_array + i * vertex_width, vertex_width);
 
