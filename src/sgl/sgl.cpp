@@ -2565,16 +2565,27 @@ void affine_transform(allocator &allocator, geometry &geom, const affine_matrix 
 	visit_vertex_arrays_mutable(geom, [&allocator, &matrix](geometry &part) {
 		const auto vertex_count = part.get_vertex_count();
 		const auto vertex_width = part.get_vertex_width();
+		const auto has_z = part.has_z();
+		const auto has_m = part.has_m();
+		const auto m_offset = has_z ? 3 : 2;
 
 		const auto old_vertex_array = part.get_vertex_array();
 		const auto new_vertex_array = static_cast<uint8_t *>(allocator.alloc(vertex_count * vertex_width));
 
-		vertex_xyzm vertex = {0, 0, 0, 0};
 		for (uint32_t i = 0; i < vertex_count; i++) {
+			vertex_xyzm vertex = {0, 0, 0, 0};
 			memcpy(&vertex, old_vertex_array + i * vertex_width, vertex_width);
 
+			auto input = vertex;
+			if (!has_z) {
+				input.z = 0;
+			}
+
 			// Apply affine transformation
-			auto new_vertex = matrix.apply_xyz(vertex);
+			auto new_vertex = matrix.apply_xyz(input);
+			if (has_m) {
+				new_vertex[m_offset] = vertex[m_offset];
+			}
 
 			memcpy(new_vertex_array + i * vertex_width, &new_vertex, vertex_width);
 		}
