@@ -62,8 +62,10 @@ add_subdirectory(src/third_party/geographiclib)
 
 add_library(${EXTENSION_NAME} STATIC ${EXTENSION_SOURCES})
 
-set(ZLIB_USE_STATIC_LIBS ON)
-find_package(ZLIB REQUIRED)
+if(NOT TARGET ZLIB::ZLIB)
+  set(ZLIB_USE_STATIC_LIBS ON)
+  find_package(ZLIB REQUIRED)
+endif()
 
 # Important: The link order matters, its the reverse order of dependency
 set(EXTENSION_DEPENDENCIES "")
