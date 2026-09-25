@@ -4,6 +4,7 @@
 
 #include "duckdb/function/replacement_scan.hpp"
 #include "duckdb/main/database.hpp"
+#include "duckdb/parallel/task_scheduler.hpp"
 #include "duckdb/parser/expression/constant_expression.hpp"
 #include "duckdb/parser/expression/function_expression.hpp"
 #include "duckdb/parser/tableref/table_function_ref.hpp"
@@ -249,7 +250,7 @@ unique_ptr<GlobalTableFunctionState> InitGlobal(ClientContext &context, TableFun
 	auto handle = fs.OpenFile(file_name, FileFlags::FILE_FLAGS_READ | FileLockType::READ_LOCK);
 	auto file_size = handle->GetFileSize();
 
-	auto max_threads = context.db->NumberOfThreads();
+	auto max_threads = TaskScheduler::QueryThreads(context);
 
 	auto global_state = make_uniq<GlobalState>(std::move(handle), file_size, max_threads);
 
@@ -405,11 +406,13 @@ struct LocalState final : LocalTableFunctionState {
 			} break;
 			case 8: { // Lat
 				auto lat = node.get_sint64();
-				FlatVector::GetDataMutable<double>(output.data[4])[index] = 0.000000001 * (lat_offset + (granularity * lat));
+				FlatVector::GetDataMutable<double>(output.data[4])[index] =
+				    0.000000001 * (lat_offset + (granularity * lat));
 			} break;
 			case 9: { // Lon
 				auto lon = node.get_sint64();
-				FlatVector::GetDataMutable<double>(output.data[5])[index] = 0.000000001 * (lon_offset + (granularity * lon));
+				FlatVector::GetDataMutable<double>(output.data[5])[index] =
+				    0.000000001 * (lon_offset + (granularity * lon));
 			} break;
 			default:
 				node.skip();
@@ -668,7 +671,8 @@ struct LocalState final : LocalTableFunctionState {
 				if (role_str.empty()) {
 					FlatVector::SetNull(role_vector, i, true);
 				} else {
-					FlatVector::GetDataMutable<string_t>(role_vector)[i] = StringVector::AddString(role_vector, role_str);
+					FlatVector::GetDataMutable<string_t>(role_vector)[i] =
+					    StringVector::AddString(role_vector, role_str);
 				}
 			}
 		} else {
