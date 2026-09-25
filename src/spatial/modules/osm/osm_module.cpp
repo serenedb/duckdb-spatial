@@ -406,11 +406,13 @@ struct LocalState final : LocalTableFunctionState {
 			} break;
 			case 8: { // Lat
 				auto lat = node.get_sint64();
-				FlatVector::GetDataMutable<double>(output.data[4])[index] = 0.000000001 * (lat_offset + (granularity * lat));
+				FlatVector::GetDataMutable<double>(output.data[4])[index] =
+				    0.000000001 * (lat_offset + (granularity * lat));
 			} break;
 			case 9: { // Lon
 				auto lon = node.get_sint64();
-				FlatVector::GetDataMutable<double>(output.data[5])[index] = 0.000000001 * (lon_offset + (granularity * lon));
+				FlatVector::GetDataMutable<double>(output.data[5])[index] =
+				    0.000000001 * (lon_offset + (granularity * lon));
 			} break;
 			default:
 				node.skip();
@@ -669,7 +671,8 @@ struct LocalState final : LocalTableFunctionState {
 				if (role_str.empty()) {
 					FlatVector::SetNull(role_vector, i, true);
 				} else {
-					FlatVector::GetDataMutable<string_t>(role_vector)[i] = StringVector::AddString(role_vector, role_str);
+					FlatVector::GetDataMutable<string_t>(role_vector)[i] =
+					    StringVector::AddString(role_vector, role_str);
 				}
 			}
 		} else {
