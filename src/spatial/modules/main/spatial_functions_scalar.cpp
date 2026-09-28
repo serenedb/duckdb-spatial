@@ -331,7 +331,7 @@ struct ST_Affine {
 
 		FunctionBuilder::RegisterMacro(loader, "ST_Translate", [](MacroFunctionBuilder &builder) {
 			builder.AddDefinition(
-			    {"geom", "dx", "dy", "dz"}, "ST_Affine(geom, 1, 0, dx, 0, 1, dy, 0, 0, 1, dz, 0, 0)",
+			    {"geom", "dx", "dy", "dz"}, "ST_Affine(geom, 1, 0, 0, 0, 1, 0, 0, 0, 1, dx, dy, dz)",
 			    "Translates a geometry in X, Y and Z direction. This is a shorthand macro for calling ST_Affine.",
 			    R"(
 					-- Translate a point by (2, 3)
@@ -348,7 +348,7 @@ struct ST_Affine {
 					LINESTRING (5 -2, 6 -1)
 				)");
 			builder.AddDefinition(
-			    {"geom", "dx", "dy"}, "ST_Affine(geom, 1, 0, dx, 0, 1, dy, 0, 0, 1, 0, 0, 0)",
+			    {"geom", "dx", "dy"}, "ST_Affine(geom, 1, 0, 0, 0, 1, 0, 0, 0, 1, dx, dy, 0)",
 			    "Translates a geometry in X and Y direction. This is a shorthand macro for calling ST_Affine.");
 		});
 
