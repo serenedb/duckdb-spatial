@@ -8,3 +8,58 @@ query I
 SELECT ST_Affine(ST_Point(1, 1), 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 3, 0);
 ----
 POINT (3 4)
+
+query I
+SELECT ST_Affine(ST_Point(1, 1), 1, 0, 5, 0, 1, 5, 0, 0, 1, 0, 0, 0);
+----
+POINT (1 1)
+
+query I
+SELECT ST_Translate(ST_Point(1, 1), 2, 3);
+----
+POINT (3 4)
+
+query I
+SELECT ST_Translate(ST_GeomFromText('POINT Z(1 2 3)'), 1, 1, 1);
+----
+POINT Z (2 3 4)
+
+query I
+SELECT ST_Translate(ST_GeomFromText('POINT Z(1 2 3)'), 2, 3);
+----
+POINT Z (3 5 3)
+
+query I
+SELECT ST_Scale(ST_GeomFromText('POINT Z(1 2 3)'), 2, 2, 2);
+----
+POINT Z (2 4 6)
+
+query II
+SELECT round(ST_X(g), 9), round(ST_Y(g), 9) FROM (SELECT ST_RotateX(ST_Point(0, 1), pi() / 2) AS g);
+----
+0.0	0.0
+
+query II
+SELECT round(ST_X(g), 9), round(ST_Y(g), 9) FROM (SELECT ST_RotateY(ST_Point(1, 0), pi() / 2) AS g);
+----
+0.0	0.0
+
+query I
+SELECT ST_Translate(ST_GeomFromText('POINT M(1 2 7)'), 1, 1, 1);
+----
+POINT M (2 3 7)
+
+query I
+SELECT ST_Translate(ST_GeomFromText('POINT ZM(1 2 3 7)'), 1, 1, 1);
+----
+POINT ZM (2 3 4 7)
+
+query I
+SELECT ST_Affine(ST_GeomFromText('POINT ZM(1 2 3 7)'), 2, 0, 0, 2, 0, 0);
+----
+POINT ZM (2 4 3 7)
+
+query I
+SELECT ST_Scale(ST_GeomFromText('LINESTRING M(1 1 5, 2 2 6)'), 2, 2, 2);
+----
+LINESTRING M (2 2 5, 4 4 6)
