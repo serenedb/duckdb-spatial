@@ -660,7 +660,7 @@ public:
 	OGRwkbGeometryType layer_type = wkbUnknown;
 };
 
-auto Bind(ClientContext &ctx, TableFunctionBindInput &input, vector<LogicalType> &col_types, vector<string> &col_names)
+auto Bind(ClientContext &ctx, TableFunctionBindInput &input, vector<LogicalType> &col_types, vector<Identifier> &col_names)
     -> unique_ptr<FunctionData> {
 
 	auto result = make_uniq<BindData>();
@@ -825,7 +825,7 @@ auto Bind(ClientContext &ctx, TableFunctionBindInput &input, vector<LogicalType>
 				// Rename the geometry column to "geom" unless keep_wkb is set
 				col_names.push_back("geom");
 			} else {
-				col_names.push_back(child_schema.name);
+				col_names.emplace_back(child_schema.name);
 			}
 
 			if (duck_type.id() != LogicalTypeId::GEOMETRY) {
@@ -1861,7 +1861,7 @@ public:
 	idx_t driver_count;
 };
 
-auto Bind(ClientContext &context, TableFunctionBindInput &input, vector<LogicalType> &types, vector<string> &names)
+auto Bind(ClientContext &context, TableFunctionBindInput &input, vector<LogicalType> &types, vector<Identifier> &names)
     -> unique_ptr<FunctionData> {
 
 	types.emplace_back(LogicalType::VARCHAR);
@@ -2019,7 +2019,7 @@ LogicalType GetLayerType() {
 	});
 }
 
-auto Bind(ClientContext &context, TableFunctionBindInput &input, vector<LogicalType> &types, vector<string> &names)
+auto Bind(ClientContext &context, TableFunctionBindInput &input, vector<LogicalType> &types, vector<Identifier> &names)
     -> unique_ptr<FunctionData> {
 	names.push_back("file_name");
 	names.push_back("driver_short_name");
