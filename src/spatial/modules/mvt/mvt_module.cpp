@@ -75,8 +75,7 @@ struct ST_TileEnvelope {
 		auto &lstate = LocalState::ResetAndGet(state);
 
 		TernaryExecutor::Execute<int32_t, int32_t, int32_t, string_t>(
-		    args.data[0], args.data[1], args.data[2], result,
-		    [&](int32_t tile_zoom, int32_t tile_x, int32_t tile_y) {
+		    args.data[0], args.data[1], args.data[2], result, [&](int32_t tile_zoom, int32_t tile_x, int32_t tile_y) {
 			    validate_tile_zoom_argument(tile_zoom);
 			    uint32_t zoom_extent = 1u << tile_zoom;
 			    validate_tile_index_arguments(zoom_extent, tile_x, tile_y);
@@ -828,8 +827,6 @@ struct ST_AsMVT {
 	static unique_ptr<FunctionData> Bind(BindAggregateFunctionInput &input) {
 		auto &context = input.GetClientContext();
 		auto &arguments = input.GetArguments();
-		auto &function = input.GetBoundFunction();
-
 
 		auto result = make_uniq<BindData>();
 
@@ -840,10 +837,6 @@ struct ST_AsMVT {
 		}
 
 		// Fold all the other parameters
-		auto folded_layer = false;
-		auto folded_extent = false;
-		auto folded_geom = false;
-		auto folded_feature = false;
 
 		if (arguments.size() >= 2) {
 			auto &layer_expr = arguments[1];
@@ -855,7 +848,6 @@ struct ST_AsMVT {
 						throw InvalidInputException("ST_AsMVT: layer name cannot be empty");
 					}
 				}
-				folded_layer = true;
 			} else {
 				throw InvalidInputException("ST_AsMVT: layer name must be a constant string");
 			}
@@ -872,7 +864,6 @@ struct ST_AsMVT {
 				if (result->extent == 0) {
 					throw InvalidInputException("ST_AsMVT: extent must be greater than zero");
 				}
-				folded_extent = true;
 			} else {
 				throw InvalidInputException("ST_AsMVT: extent must be a constant integer");
 			}
@@ -888,7 +879,6 @@ struct ST_AsMVT {
 						throw InvalidInputException("ST_AsMVT: geometry column name cannot be empty");
 					}
 				}
-				folded_geom = true;
 			} else {
 				throw InvalidInputException("ST_AsMVT: geometry column name must be a constant string");
 			}
@@ -905,7 +895,6 @@ struct ST_AsMVT {
 						throw InvalidInputException("ST_AsMVT: feature id column name cannot be empty");
 					}
 				}
-				folded_feature = true;
 			} else {
 				throw InvalidInputException("ST_AsMVT: feature id column name must be a constant string");
 			}
@@ -986,19 +975,7 @@ struct ST_AsMVT {
 			}
 		}
 
-		// Erase arguments, back to front
-		if (folded_feature) {
-			Function::EraseArgument(function, arguments, 4);
-		}
-		if (folded_geom) {
-			Function::EraseArgument(function, arguments, 3);
-		}
-		if (folded_extent) {
-			Function::EraseArgument(function, arguments, 2);
-		}
-		if (folded_layer) {
-			Function::EraseArgument(function, arguments, 1);
-		}
+		// the folded arguments stay part of the expression tree - Update only reads the leading row argument
 
 		return std::move(result);
 	}
@@ -1180,7 +1157,8 @@ struct ST_AsMVT {
 	//------------------------------------------------------------------------------------------------------------------
 	// Finalize
 	//------------------------------------------------------------------------------------------------------------------
-	static void Finalize(Vector &state_vec, AggregateFinalizeInputData &aggr, Vector &result, idx_t count, idx_t offset) {
+	static void Finalize(Vector &state_vec, AggregateFinalizeInputData &aggr, Vector &result, idx_t count,
+	                     idx_t offset) {
 		const auto &bdata = aggr.bind_data->Cast<BindData>();
 
 		UnifiedVectorFormat state_format;
