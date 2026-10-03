@@ -94,7 +94,7 @@ static unique_ptr<FunctionData> PropagateTypesInternal(ClientContext &context, B
 					if (!crs.Equals(type_crs)) {
 						throw BinderException(
 						    arg->GetQueryLocation(),
-						    "Cannot call function '%s' with geometries of different coordinate reference systems "
+						    "Cannot call function %s with geometries of different coordinate reference systems "
 						    "(CRS).\n"
 						    "First geometry type is in '%s' which is not compatible with '%s'.\n"
 						    " * Use 'ST_Transform' to convert geometries to the same CRS before passing them to this "
