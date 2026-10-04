@@ -46,3 +46,18 @@ query I
 SELECT ST_DWithin(NULL::GEOMETRY, ST_Point(0, 0), 5.0);
 ----
 NULL
+
+query I
+SELECT TRY(ST_DWithin(ST_Point(0, 0), ST_Point(0, 0), ('x' || '')::DOUBLE));
+----
+NULL
+
+query I
+SELECT CASE WHEN false THEN ST_DWithin(ST_Point(0, 0), ST_Point(0, 0), ('x' || '')::DOUBLE) ELSE true END;
+----
+true
+
+statement error
+SELECT ST_DWithin(ST_Point(0, 0), ST_Point(0, 0), ('x' || '')::DOUBLE);
+----
+Could not convert string 'x' to DOUBLE
