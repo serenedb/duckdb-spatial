@@ -1,0 +1,29 @@
+# name: test/sql/postgis/distance_operator.test
+# description: The <-> operator is the planar distance between two geometries, as in PostGIS
+# group: [postgis]
+
+require spatial
+
+query II
+SELECT 'POINT (0 0)'::GEOMETRY <-> 'POINT (3 4)'::GEOMETRY, 'LINESTRING (0 0, 10 0)'::GEOMETRY <-> 'POINT (5 3)'::GEOMETRY
+----
+5.0	3.0
+
+statement ok
+CREATE TABLE places (id INTEGER, geom GEOMETRY);
+
+statement ok
+INSERT INTO places VALUES (1, 'POINT (10 10)'), (2, 'POINT (1 1)'), (3, 'POLYGON ((4 4, 6 4, 6 6, 4 6, 4 4))'), (4, NULL);
+
+query II
+SELECT id, geom <-> 'POINT (0 0)'::GEOMETRY = ST_Distance(geom, 'POINT (0 0)'::GEOMETRY) FROM places ORDER BY geom <-> 'POINT (0 0)'::GEOMETRY, id
+----
+2	true
+3	true
+1	true
+4	NULL
+
+query I
+SELECT [1.0, 2.0] <-> [1.0, 4.0]
+----
+2.0

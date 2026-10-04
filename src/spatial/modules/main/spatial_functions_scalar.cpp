@@ -2588,10 +2588,32 @@ struct ST_Distance {
 		5.0
 	)";
 
+	static constexpr auto OPERATOR_DESCRIPTION = "Returns the planar distance between two geometries, as ST_Distance";
+	static constexpr auto OPERATOR_EXAMPLE = R"(
+		SELECT 'POINT (0 0)'::GEOMETRY <-> 'POINT (3 4)'::GEOMETRY;
+		----
+		5.0
+	)";
+
 	//------------------------------------------------------------------------------------------------------------------
 	// Register
 	//------------------------------------------------------------------------------------------------------------------
 	static void Register(ExtensionLoader &loader) {
+		FunctionBuilder::RegisterScalar(loader, "<->", [](ScalarFunctionBuilder &func) {
+			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
+				variant.AddParameter("geom1", LogicalType::GEOMETRY());
+				variant.AddParameter("geom2", LogicalType::GEOMETRY());
+				variant.SetReturnType(LogicalType::DOUBLE);
+
+				variant.SetBind(GeoTypes::PropagateCRS);
+				variant.SetInit(LocalState::Init);
+				variant.SetFunction(ExecuteGeometry);
+			});
+
+			func.SetDescription(OPERATOR_DESCRIPTION);
+			func.SetExample(OPERATOR_EXAMPLE);
+		});
+
 		FunctionBuilder::RegisterScalar(loader, "ST_Distance", [](ScalarFunctionBuilder &func) {
 			func.AddVariant([](ScalarFunctionVariantBuilder &variant) {
 				variant.AddParameter("point1", GeoTypes::POINT_2D());
