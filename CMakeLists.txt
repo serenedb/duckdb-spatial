@@ -50,8 +50,6 @@ add_subdirectory(src/spatial)
 add_subdirectory(src/sgl)
 include_directories(src)
 
-include_directories(src/third_party/protozero/include)
-
 include_directories(src/third_party/shapelib)
 add_subdirectory(src/third_party/shapelib)
 
@@ -68,7 +66,7 @@ endif()
 # Important: The link order matters, its the reverse order of dependency
 set(EXTENSION_DEPENDENCIES "")
 
-list(APPEND EXTENSION_DEPENDENCIES ZLIB::ZLIB)
+list(APPEND EXTENSION_DEPENDENCIES ZLIB::ZLIB protozero)
 
 if(SPATIAL_USE_GEOS)
   message(STATUS "Building with GEOS functionality")
