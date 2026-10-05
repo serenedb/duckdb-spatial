@@ -25,7 +25,7 @@
 #include "spatial/spatial_settings.hpp"
 
 // Extra
-#include "yyjson.h"
+#include "yyjson.hpp"
 
 namespace duckdb {
 
@@ -596,7 +596,7 @@ struct ST_Area {
 // ST_AsGeoJSON
 //======================================================================================================================
 
-using namespace duckdb_yyjson_spatial;
+using namespace duckdb_yyjson;
 
 class JSONAllocator {
 	// Stolen from the JSON extension :)

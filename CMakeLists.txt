@@ -50,9 +50,6 @@ add_subdirectory(src/spatial)
 add_subdirectory(src/sgl)
 include_directories(src)
 
-include_directories(src/third_party/yyjson/include)
-add_subdirectory(src/third_party/yyjson)
-
 include_directories(src/third_party/protozero/include)
 
 include_directories(src/third_party/shapelib)
