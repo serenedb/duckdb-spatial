@@ -100,9 +100,12 @@ static bool IsSpatialJoinPredicate(const unique_ptr<Expression> &expr, const uno
 
 	auto &func = expr->Cast<BoundFunctionExpression>();
 
-	// The function must be a binary predicate
 	if (func.GetChildren().size() != 2) {
-		return false;
+		double distance;
+		if (func.GetChildren().size() != 3 || func.Function().GetName() != "ST_DWithin" ||
+		    !ST_DWithinHelper::TryGetConstDistance(func.BindInfo(), distance)) {
+			return false;
+		}
 	}
 
 	// The function must return a boolean
@@ -114,8 +117,8 @@ static bool IsSpatialJoinPredicate(const unique_ptr<Expression> &expr, const uno
 	if (spatial_predicate_map.count(func.Function().GetName().GetIdentifierName()) == 0) {
 		return false;
 	}
-	
-	// The function's operands must be GEOMETRY 
+
+	// The function's operands must be GEOMETRY
 	if (func.GetChildren()[0]->GetReturnType().id() != LogicalTypeId::GEOMETRY ||
 	    func.GetChildren()[1]->GetReturnType().id() != LogicalTypeId::GEOMETRY) {
 		return false;
