@@ -1,8 +1,12 @@
 #include "spatial/modules/boost/boost_ops.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <span>
 #include <stdexcept>
 #include <type_traits>
+#include <vector>
 
 namespace duckdb {
 
@@ -180,6 +184,324 @@ BoostGeometry AsMulti(const BoostSingle &geom) {
 		    }
 	    },
 	    geom);
+}
+
+int ComparePoints(const BoostPoint &left, const BoostPoint &right) {
+	if (left.x() != right.x()) {
+		return left.x() < right.x() ? -1 : 1;
+	}
+	if (left.y() != right.y()) {
+		return left.y() < right.y() ? -1 : 1;
+	}
+	return 0;
+}
+
+template <class POINTS>
+int ComparePointSequences(const POINTS &left, const POINTS &right) {
+	const auto common = std::min(left.size(), right.size());
+	for (size_t i = 0; i < common; i++) {
+		if (const auto order = ComparePoints(left[i], right[i])) {
+			return order;
+		}
+	}
+	if (left.size() != right.size()) {
+		return left.size() < right.size() ? -1 : 1;
+	}
+	return 0;
+}
+
+int ComparePolygons(const BoostPolygon &left, const BoostPolygon &right) {
+	if (const auto order = ComparePointSequences(left.outer(), right.outer())) {
+		return order;
+	}
+	const auto common = std::min(left.inners().size(), right.inners().size());
+	for (size_t i = 0; i < common; i++) {
+		if (const auto order = ComparePointSequences(left.inners()[i], right.inners()[i])) {
+			return order;
+		}
+	}
+	if (left.inners().size() != right.inners().size()) {
+		return left.inners().size() < right.inners().size() ? -1 : 1;
+	}
+	return 0;
+}
+
+template <class POINTS>
+bool IsCounterClockwise(const POINTS &ring) {
+	double twice_area = 0;
+	for (size_t i = 0; i + 1 < ring.size(); i++) {
+		twice_area += ring[i].x() * ring[i + 1].y() - ring[i + 1].x() * ring[i].y();
+	}
+	return twice_area > 0;
+}
+
+template <class POINTS>
+void NormalizeRing(POINTS &ring, const bool clockwise) {
+	if (ring.size() < 2) {
+		return;
+	}
+	size_t first = 0;
+	for (size_t i = 1; i + 1 < ring.size(); i++) {
+		if (ComparePoints(ring[first], ring[i]) > 0) {
+			first = i;
+		}
+	}
+	std::rotate(ring.begin(), ring.begin() + first, ring.end() - 1);
+	ring.back() = ring.front();
+	if (IsCounterClockwise(ring) == clockwise) {
+		std::reverse(ring.begin(), ring.end());
+	}
+}
+
+void NormalizeInPlace(BoostPoint &) {
+}
+
+void NormalizeInPlace(BoostLinestring &line) {
+	if (line.size() > 1 && ComparePoints(line.front(), line.back()) == 0) {
+		NormalizeRing(line, true);
+		return;
+	}
+	for (size_t i = 0; i < line.size() / 2; i++) {
+		if (const auto order = ComparePoints(line[i], line[line.size() - 1 - i])) {
+			if (order > 0) {
+				std::reverse(line.begin(), line.end());
+			}
+			return;
+		}
+	}
+}
+
+void NormalizeInPlace(BoostPolygon &polygon) {
+	NormalizeRing(polygon.outer(), true);
+	for (auto &hole : polygon.inners()) {
+		NormalizeRing(hole, false);
+	}
+	std::sort(polygon.inners().begin(), polygon.inners().end(),
+	          [](const auto &left, const auto &right) { return ComparePointSequences(left, right) > 0; });
+}
+
+void NormalizeInPlace(BoostMultiPoint &multi) {
+	std::sort(multi.begin(), multi.end(),
+	          [](const BoostPoint &left, const BoostPoint &right) { return ComparePoints(left, right) > 0; });
+}
+
+void NormalizeInPlace(BoostMultiLinestring &multi) {
+	for (auto &line : multi) {
+		NormalizeInPlace(line);
+	}
+	std::sort(multi.begin(), multi.end(), [](const BoostLinestring &left, const BoostLinestring &right) {
+		return ComparePointSequences(left, right) > 0;
+	});
+}
+
+void NormalizeInPlace(BoostMultiPolygon &multi) {
+	for (auto &polygon : multi) {
+		NormalizeInPlace(polygon);
+	}
+	std::sort(multi.begin(), multi.end(),
+	          [](const BoostPolygon &left, const BoostPolygon &right) { return ComparePolygons(left, right) > 0; });
+}
+
+double PointDistance(const BoostPoint &left, const BoostPoint &right) {
+	const auto dx = left.x() - right.x();
+	const auto dy = left.y() - right.y();
+	return std::sqrt(dx * dx + dy * dy);
+}
+
+class ClosestToCentroid {
+public:
+	explicit ClosestToCentroid(const BoostPoint &centroid) : centroid(centroid) {
+	}
+
+	void Add(const BoostPoint &point) {
+		const auto distance = PointDistance(point, centroid);
+		if (distance < min_distance) {
+			min_distance = distance;
+			closest = point;
+			found = true;
+		}
+	}
+
+	bool Found() const {
+		return found;
+	}
+	const BoostPoint &Closest() const {
+		return closest;
+	}
+
+private:
+	BoostPoint centroid;
+	double min_distance = std::numeric_limits<double>::max();
+	BoostPoint closest;
+	bool found = false;
+};
+
+BoostPoint PointCentroid(std::span<const BoostPoint> points) {
+	double sum_x = 0;
+	double sum_y = 0;
+	for (const auto &point : points) {
+		sum_x += point.x();
+		sum_y += point.y();
+	}
+	const auto count = static_cast<double>(points.size());
+	return BoostPoint(sum_x / count, sum_y / count);
+}
+
+BoostPoint LineCentroid(std::span<const BoostLinestring> lines) {
+	double total_length = 0;
+	double sum_x = 0;
+	double sum_y = 0;
+	std::vector<BoostPoint> fallback;
+	for (const auto &line : lines) {
+		double line_length = 0;
+		for (size_t i = 0; i + 1 < line.size(); i++) {
+			const auto length = PointDistance(line[i], line[i + 1]);
+			if (length == 0) {
+				continue;
+			}
+			line_length += length;
+			sum_x += length * ((line[i].x() + line[i + 1].x()) / 2);
+			sum_y += length * ((line[i].y() + line[i + 1].y()) / 2);
+		}
+		total_length += line_length;
+		if (line_length == 0 && !line.empty()) {
+			fallback.push_back(line.front());
+		}
+	}
+	if (total_length > 0) {
+		return BoostPoint(sum_x / total_length, sum_y / total_length);
+	}
+	return PointCentroid(fallback);
+}
+
+BoostPoint InteriorPointOfLines(std::span<const BoostLinestring> lines) {
+	ClosestToCentroid closest(LineCentroid(lines));
+	for (const auto &line : lines) {
+		for (size_t i = 1; i + 1 < line.size(); i++) {
+			closest.Add(line[i]);
+		}
+	}
+	if (!closest.Found()) {
+		for (const auto &line : lines) {
+			if (!line.empty()) {
+				closest.Add(line.front());
+				closest.Add(line.back());
+			}
+		}
+	}
+	if (!closest.Found()) {
+		throw std::runtime_error("ST_PointOnSurface: geometry is empty");
+	}
+	return closest.Closest();
+}
+
+BoostPoint InteriorPointOfPoints(std::span<const BoostPoint> points) {
+	if (points.empty()) {
+		throw std::runtime_error("ST_PointOnSurface: geometry is empty");
+	}
+	ClosestToCentroid closest(PointCentroid(points));
+	for (const auto &point : points) {
+		closest.Add(point);
+	}
+	return closest.Closest();
+}
+
+double ScanLineY(const BoostPolygon &polygon) {
+	auto lo = std::numeric_limits<double>::infinity();
+	auto hi = -std::numeric_limits<double>::infinity();
+	for (const auto &point : polygon.outer()) {
+		lo = std::min(lo, point.y());
+		hi = std::max(hi, point.y());
+	}
+	const auto centre = (lo + hi) / 2;
+	const auto narrow = [&](const double y) {
+		if (y <= centre) {
+			if (y > lo) {
+				lo = y;
+			}
+		} else if (y < hi) {
+			hi = y;
+		}
+	};
+	for (const auto &point : polygon.outer()) {
+		narrow(point.y());
+	}
+	for (const auto &hole : polygon.inners()) {
+		for (const auto &point : hole) {
+			narrow(point.y());
+		}
+	}
+	return (hi + lo) / 2;
+}
+
+template <class POINTS>
+void AddScanLineCrossings(const POINTS &ring, const double y, std::vector<double> &crossings) {
+	for (size_t i = 1; i < ring.size(); i++) {
+		const auto &p0 = ring[i - 1];
+		const auto &p1 = ring[i];
+		const auto y0 = p0.y();
+		const auto y1 = p1.y();
+		if ((y0 > y && y1 > y) || (y0 < y && y1 < y) || y0 == y1) {
+			continue;
+		}
+		if ((y0 == y && y1 < y) || (y1 == y && y0 < y)) {
+			continue;
+		}
+		const auto x0 = p0.x();
+		const auto x1 = p1.x();
+		if (x0 == x1) {
+			crossings.push_back(x0);
+			continue;
+		}
+		const auto slope = (y1 - y0) / (x1 - x0);
+		crossings.push_back(x0 + ((y - y0) / slope));
+	}
+}
+
+struct InteriorSection {
+	BoostPoint point;
+	double width;
+};
+
+InteriorSection WidestInteriorSection(const BoostPolygon &polygon) {
+	const auto y = ScanLineY(polygon);
+	InteriorSection section {polygon.outer().front(), 0};
+	std::vector<double> crossings;
+	AddScanLineCrossings(polygon.outer(), y, crossings);
+	for (const auto &hole : polygon.inners()) {
+		AddScanLineCrossings(hole, y, crossings);
+	}
+	if (crossings.size() % 2 != 0) {
+		throw std::runtime_error("ST_PointOnSurface: odd number of scan-line crossings, the polygon is invalid");
+	}
+	std::sort(crossings.begin(), crossings.end());
+	for (size_t i = 0; i < crossings.size(); i += 2) {
+		const auto width = crossings[i + 1] - crossings[i];
+		if (width > section.width) {
+			section.width = width;
+			section.point = BoostPoint((crossings[i] + crossings[i + 1]) / 2, y);
+		}
+	}
+	return section;
+}
+
+BoostPoint InteriorPointOfPolygons(std::span<const BoostPolygon> polygons) {
+	auto max_width = -1.0;
+	BoostPoint point;
+	for (const auto &polygon : polygons) {
+		if (polygon.outer().empty()) {
+			continue;
+		}
+		const auto section = WidestInteriorSection(polygon);
+		if (section.width > max_width) {
+			max_width = section.width;
+			point = section.point;
+		}
+	}
+	if (max_width < 0) {
+		throw std::runtime_error("ST_PointOnSurface: geometry is empty");
+	}
+	return point;
 }
 
 } // namespace
@@ -393,25 +715,21 @@ BoostGeometry Simplify(const BoostGeometry &geom, const double tolerance) {
 
 BoostGeometry PointOnSurface(const BoostGeometry &geom) {
 	const auto &single = Only(geom);
-	BoostPoint point;
-	boost::variant2::visit(
-	    [&](const auto &g) {
+	const auto point = boost::variant2::visit(
+	    [](const auto &g) -> BoostPoint {
 		    using G = std::decay_t<decltype(g)>;
-		    if constexpr (DimOfType<G>() == 2) {
-			    bg::point_on_surface(g, point);
-		    } else if constexpr (std::is_same_v<G, BoostPoint>) {
-			    point = g;
+		    if constexpr (std::is_same_v<G, BoostPoint>) {
+			    return g;
+		    } else if constexpr (std::is_same_v<G, BoostMultiPoint>) {
+			    return InteriorPointOfPoints(g);
+		    } else if constexpr (std::is_same_v<G, BoostLinestring>) {
+			    return InteriorPointOfLines(std::span<const BoostLinestring>(&g, 1));
+		    } else if constexpr (std::is_same_v<G, BoostMultiLinestring>) {
+			    return InteriorPointOfLines(g);
+		    } else if constexpr (std::is_same_v<G, BoostPolygon>) {
+			    return InteriorPointOfPolygons(std::span<const BoostPolygon>(&g, 1));
 		    } else {
-			    bool found = false;
-			    bg::for_each_point(g, [&](const BoostPoint &p) {
-				    if (!found) {
-					    point = p;
-					    found = true;
-				    }
-			    });
-			    if (!found) {
-				    throw std::runtime_error("ST_PointOnSurface: geometry is empty");
-			    }
+			    return InteriorPointOfPolygons(g);
 		    }
 	    },
 	    single);
@@ -481,19 +799,9 @@ BoostGeometry Boundary(const BoostGeometry &geom) {
 }
 
 BoostGeometry Normalize(const BoostGeometry &geom) {
-	const auto &single = Only(geom);
-	return boost::variant2::visit(
-	    [](const auto &g) -> BoostGeometry {
-		    using G = std::decay_t<decltype(g)>;
-		    if constexpr (std::is_same_v<G, BoostPoint>) {
-			    return BoostGeometry(BoostSingle {g});
-		    } else {
-			    G out = g;
-			    bg::correct(out);
-			    return BoostGeometry(BoostSingle {std::move(out)});
-		    }
-	    },
-	    single);
+	auto single = Only(geom);
+	boost::variant2::visit([](auto &g) { NormalizeInPlace(g); }, single);
+	return BoostGeometry(std::move(single));
 }
 
 BoostGeometry RemoveRepeatedPoints(const BoostGeometry &geom) {
