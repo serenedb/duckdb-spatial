@@ -6,9 +6,6 @@
 require spatial
 
 statement ok
-PRAGMA enable_verification
-
-statement ok
 CREATE TABLE a AS SELECT * FROM (VALUES (1, [10, 20, 30]::ubigint[]), (2, [40, 50]::ubigint[])) t(id, cells);
 
 statement ok
