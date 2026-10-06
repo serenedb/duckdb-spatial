@@ -1,5 +1,7 @@
 #include "spatial/operators/spatial_operator_extension.hpp"
+#if SPATIAL_USE_RTREE
 #include "spatial/index/rtree/rtree_index_create_logical.hpp"
+#endif
 #include "spatial/operators/spatial_join_logical.hpp"
 
 #include "duckdb/main/database.hpp"
@@ -27,10 +29,11 @@ public:
 	unique_ptr<LogicalExtensionOperator> Deserialize(Deserializer &reader) override {
 		const auto operator_type = reader.ReadPropertyWithDefault<string>(300, "operator_type");
 
-		// These are the two custom operators we support now
+#if SPATIAL_USE_RTREE
 		if (operator_type == LogicalCreateRTreeIndex::OPERATOR_TYPE_NAME) {
 			return LogicalCreateRTreeIndex::Deserialize(reader);
 		}
+#endif
 		if (operator_type == LogicalSpatialJoin::OPERATOR_TYPE_NAME) {
 			return LogicalSpatialJoin::Deserialize(reader);
 		}

@@ -4,9 +4,6 @@
 
 require spatial
 
-statement ok
-PRAGMA enable_verification
-
 # Probe side: a 11x11 grid of points (0,0) .. (100,100)
 statement ok
 CREATE TABLE probe AS

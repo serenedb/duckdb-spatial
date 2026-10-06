@@ -4,6 +4,12 @@ require spatial
 query I
 SElECT ST_Collect([]);
 ----
+NULL
+
+# Test collection of only empties
+query I
+SELECT ST_Collect([ST_GeomFromText('POINT EMPTY')]);
+----
 GEOMETRYCOLLECTION EMPTY
 
 # Test collection with one point
@@ -46,7 +52,7 @@ MULTIPOINT (1 2)
 query I
 SElECT ST_Collect([NULL, NULL]);
 ----
-GEOMETRYCOLLECTION EMPTY
+NULL
 
 
 # Multidimensional geometries
