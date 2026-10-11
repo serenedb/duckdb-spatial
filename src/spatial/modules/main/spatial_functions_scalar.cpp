@@ -11,7 +11,6 @@
 
 // DuckDB
 #include "duckdb/common/constants.hpp"
-#include "duckdb/logging/logger.hpp"
 #include "duckdb/common/types/blob.hpp"
 #include "duckdb/common/vector_operations/generic_executor.hpp"
 #include "duckdb/execution/expression_executor.hpp"
@@ -5961,8 +5960,7 @@ struct ST_Distance_Sphere {
 			    "LATITUDE)\n"
 			    " * 'SET geometry_always_xy = false' to keep the current behavior and make this warning go away.";
 
-			auto &logger = Logger::Get(context);
-			logger.WriteLog("Spatial", LogLevel::LOG_WARNING, StringUtil::Format(raw_message, func.GetName().c_str()));
+			context.WarnUser(StringUtil::Format(raw_message, func.GetName().c_str()));
 		}
 
 		return std::move(bind_data);
