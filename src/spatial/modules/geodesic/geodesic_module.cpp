@@ -6,7 +6,6 @@
 #include "spatial/geometry/geometry_serialization.hpp"
 
 #include "duckdb/common/vector_operations/generic_executor.hpp"
-#include "duckdb/logging/logger.hpp"
 #include "duckdb/execution/expression_executor.hpp"
 #include "duckdb/planner/expression/bound_function_expression.hpp"
 
@@ -60,8 +59,7 @@ struct GeodesicBindData final : FunctionData {
 			    "LATITUDE]\n"
 			    " * 'SET geometry_always_xy = false' to keep the current behavior and make this warning go away.";
 
-			auto &logger = Logger::Get(ctx);
-			logger.WriteLog("Spatial", LogLevel::LOG_WARNING, StringUtil::Format(raw_message, func.GetName().c_str()));
+			ctx.WarnUser(StringUtil::Format(raw_message, func.GetName().c_str()));
 		}
 
 		return std::move(result);
