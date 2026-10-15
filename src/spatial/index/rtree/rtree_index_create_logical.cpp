@@ -129,7 +129,7 @@ static PhysicalOperator &CreateOrderByMinX(PhysicalPlanGenerator &planner, const
 	vector<BoundOrderByNode> orders;
 	orders.emplace_back(OrderType::ASCENDING, OrderByNullType::NULLS_FIRST, std::move(xmin_expr));
 	vector<idx_t> projections = {0, 1};
-	return planner.Make<PhysicalOrder>(types, std::move(orders), projections, op.estimated_cardinality);
+	return planner.Make<PhysicalOrder>(context, types, types, std::move(orders), projections, op.estimated_cardinality);
 }
 
 PhysicalOperator &RTreeIndex::CreatePlan(PlanIndexInput &input) {
