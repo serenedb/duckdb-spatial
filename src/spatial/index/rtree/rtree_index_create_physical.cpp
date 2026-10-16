@@ -230,11 +230,7 @@ static TaskExecutionResult BuildRTreeBottomUp(CreateRTreeIndexGlobalState &state
 
 		// We are done with this layer, pop it
 		state.rtree_level++;
-
-		// Yield if we are in partial mode and the scan is exhausted
-		if (mode == TaskExecutionMode::PROCESS_PARTIAL) {
-			return TaskExecutionResult::TASK_NOT_FINISHED;
-		}
+		return TaskExecutionResult::TASK_NOT_FINISHED;
 	}
 
 	// Set the root node!
