@@ -106,7 +106,7 @@ void SHPAPI_CALL SHPWriteHeader(SHPHandle psSHP)
 {
     if (psSHP->fpSHX == SHPLIB_NULLPTR)
     {
-        psSHP->sHooks.Error("SHPWriteHeader failed : SHX file is closed");
+        psSHP->sHooks.Error(psSHP->sHooks.userData, "SHPWriteHeader failed : SHX file is closed");
         return;
     }
 
@@ -184,7 +184,7 @@ void SHPAPI_CALL SHPWriteHeader(SHPHandle psSHP)
         snprintf(szErrorMsg, sizeof(szErrorMsg),
                  "Failure writing .shp header: %s", strerror(errno));
         szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-        psSHP->sHooks.Error(szErrorMsg);
+        psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
         return;
     }
 
@@ -204,7 +204,7 @@ void SHPAPI_CALL SHPWriteHeader(SHPHandle psSHP)
         snprintf(szErrorMsg, sizeof(szErrorMsg),
                  "Failure writing .shx header: %s", strerror(errno));
         szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-        psSHP->sHooks.Error(szErrorMsg);
+        psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
 
         return;
     }
@@ -216,7 +216,7 @@ void SHPAPI_CALL SHPWriteHeader(SHPHandle psSHP)
         STATIC_CAST(int32_t *, malloc(sizeof(int32_t) * 2 * psSHP->nRecords));
     if (panSHX == SHPLIB_NULLPTR)
     {
-        psSHP->sHooks.Error("Failure allocatin panSHX");
+        psSHP->sHooks.Error(psSHP->sHooks.userData, "Failure allocatin panSHX");
         return;
     }
 
@@ -239,7 +239,7 @@ void SHPAPI_CALL SHPWriteHeader(SHPHandle psSHP)
         snprintf(szErrorMsg, sizeof(szErrorMsg),
                  "Failure writing .shx contents: %s", strerror(errno));
         szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-        psSHP->sHooks.Error(szErrorMsg);
+        psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
     }
 
     free(panSHX);
@@ -353,7 +353,7 @@ SHPHandle SHPAPI_CALL SHPOpenLL(const char *pszLayer, const char *pszAccess,
         snprintf(pszMessage, nMessageLen,
                  "Unable to open %s.shp or %s.SHP in %s mode.", pszFullname,
                  pszFullname, pszAccess);
-        psHooks->Error(pszMessage);
+        psHooks->Error(psHooks->userData, pszMessage);
         free(pszMessage);
 
         free(psSHP);
@@ -380,7 +380,7 @@ SHPHandle SHPAPI_CALL SHPOpenLL(const char *pszLayer, const char *pszAccess,
                  "Set SHAPE_RESTORE_SHX config option to YES to restore or "
                  "create it.",
                  pszFullname, pszFullname);
-        psHooks->Error(pszMessage);
+        psHooks->Error(psHooks->userData, pszMessage);
         free(pszMessage);
 
         psSHP->sHooks.FClose(psSHP->fpSHP);
@@ -397,7 +397,7 @@ SHPHandle SHPAPI_CALL SHPOpenLL(const char *pszLayer, const char *pszAccess,
     unsigned char *pabyBuf = STATIC_CAST(unsigned char *, malloc(100));
     if (psSHP->sHooks.FRead(pabyBuf, 100, 1, psSHP->fpSHP) != 1)
     {
-        psSHP->sHooks.Error(".shp file is unreadable, or corrupt.");
+        psSHP->sHooks.Error(psSHP->sHooks.userData, ".shp file is unreadable, or corrupt.");
         psSHP->sHooks.FClose(psSHP->fpSHP);
         psSHP->sHooks.FClose(psSHP->fpSHX);
         free(pabyBuf);
@@ -420,7 +420,7 @@ SHPHandle SHPAPI_CALL SHPOpenLL(const char *pszLayer, const char *pszAccess,
         pabyBuf[0] != 0 || pabyBuf[1] != 0 || pabyBuf[2] != 0x27 ||
         (pabyBuf[3] != 0x0a && pabyBuf[3] != 0x0d))
     {
-        psSHP->sHooks.Error(".shx file is unreadable, or corrupt.");
+        psSHP->sHooks.Error(psSHP->sHooks.userData, ".shx file is unreadable, or corrupt.");
         psSHP->sHooks.FClose(psSHP->fpSHP);
         psSHP->sHooks.FClose(psSHP->fpSHX);
         free(pabyBuf);
@@ -444,7 +444,7 @@ SHPHandle SHPAPI_CALL SHPOpenLL(const char *pszLayer, const char *pszAccess,
                  "unreasonable.  Assuming header is corrupt.",
                  psSHP->nRecords);
         szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-        psSHP->sHooks.Error(szErrorMsg);
+        psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
         psSHP->sHooks.FClose(psSHP->fpSHP);
         psSHP->sHooks.FClose(psSHP->fpSHX);
         free(psSHP);
@@ -544,7 +544,7 @@ SHPHandle SHPAPI_CALL SHPOpenLL(const char *pszLayer, const char *pszAccess,
             "Probably broken SHP file",
             psSHP->nRecords);
         szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-        psSHP->sHooks.Error(szErrorMsg);
+        psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
         psSHP->sHooks.FClose(psSHP->fpSHP);
         psSHP->sHooks.FClose(psSHP->fpSHX);
         if (psSHP->panRecOffset)
@@ -576,7 +576,7 @@ SHPHandle SHPAPI_CALL SHPOpenLL(const char *pszLayer, const char *pszAccess,
                  "Failed to read all values for %d records in .shx file: %s.",
                  psSHP->nRecords, strerror(errno));
         szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-        psSHP->sHooks.Error(szErrorMsg);
+        psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
 
         /* SHX is short or unreadable for some reason. */
         psSHP->sHooks.FClose(psSHP->fpSHP);
@@ -614,7 +614,7 @@ SHPHandle SHPAPI_CALL SHPOpenLL(const char *pszLayer, const char *pszAccess,
             snprintf(str, sizeof(str), "Invalid offset for entity %d", i);
             str[sizeof(str) - 1] = '\0';
 
-            psSHP->sHooks.Error(str);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, str);
             SHPClose(psSHP);
             free(pabyBuf);
             return SHPLIB_NULLPTR;
@@ -625,7 +625,7 @@ SHPHandle SHPAPI_CALL SHPOpenLL(const char *pszLayer, const char *pszAccess,
             snprintf(str, sizeof(str), "Invalid length for entity %d", i);
             str[sizeof(str) - 1] = '\0';
 
-            psSHP->sHooks.Error(str);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, str);
             SHPClose(psSHP);
             free(pabyBuf);
             return SHPLIB_NULLPTR;
@@ -723,7 +723,7 @@ int SHPAPI_CALL SHPRestoreSHX(const char *pszLayer, const char *pszAccess,
         pszFullname[nLenWithoutExtension] = 0;
         snprintf(pszMessage, nMessageLen, "Unable to open %s.shp or %s.SHP.",
                  pszFullname, pszFullname);
-        psHooks->Error(pszMessage);
+        psHooks->Error(psHooks->userData, pszMessage);
         free(pszMessage);
 
         free(pszFullname);
@@ -737,7 +737,7 @@ int SHPAPI_CALL SHPRestoreSHX(const char *pszLayer, const char *pszAccess,
     unsigned char *pabyBuf = STATIC_CAST(unsigned char *, malloc(100));
     if (psHooks->FRead(pabyBuf, 100, 1, fpSHP) != 1)
     {
-        psHooks->Error(".shp file is unreadable, or corrupt.");
+        psHooks->Error(psHooks->userData, ".shp file is unreadable, or corrupt.");
         psHooks->FClose(fpSHP);
 
         free(pabyBuf);
@@ -764,7 +764,7 @@ int SHPAPI_CALL SHPRestoreSHX(const char *pszLayer, const char *pszAccess,
         pszFullname[nLenWithoutExtension] = 0;
         snprintf(pszMessage, nMessageLen,
                  "Error opening file %s.shx for writing", pszFullname);
-        psHooks->Error(pszMessage);
+        psHooks->Error(psHooks->userData, pszMessage);
         free(pszMessage);
 
         psHooks->FClose(fpSHP);
@@ -824,7 +824,7 @@ int SHPAPI_CALL SHPRestoreSHX(const char *pszLayer, const char *pszAccess,
                          "Invalid record length = %u at record starting at "
                          "offset %u",
                          nSHPType, nCurrentSHPOffset);
-                psHooks->Error(szErrorMsg);
+                psHooks->Error(psHooks->userData, szErrorMsg);
 
                 nRetCode = FALSE;
                 break;
@@ -845,7 +845,7 @@ int SHPAPI_CALL SHPRestoreSHX(const char *pszLayer, const char *pszAccess,
                          "Invalid shape type = %d at record starting at "
                          "offset %u",
                          nSHPType, nCurrentSHPOffset);
-                psHooks->Error(szErrorMsg);
+                psHooks->Error(psHooks->userData, szErrorMsg);
 
                 nRetCode = FALSE;
                 break;
@@ -868,7 +868,7 @@ int SHPAPI_CALL SHPRestoreSHX(const char *pszLayer, const char *pszAccess,
                      "Cannot read first bytes of record starting at "
                      "offset %u",
                      nCurrentSHPOffset);
-            psHooks->Error(szErrorMsg);
+            psHooks->Error(psHooks->userData, szErrorMsg);
 
             nRetCode = FALSE;
             break;
@@ -876,7 +876,7 @@ int SHPAPI_CALL SHPRestoreSHX(const char *pszLayer, const char *pszAccess,
     }
     if (nRetCode && nCurrentSHPOffset != nSHPFilesize)
     {
-        psHooks->Error("Error parsing .shp to restore .shx. "
+        psHooks->Error(psHooks->userData, "Error parsing .shp to restore .shx. "
                        "Not expected number of bytes");
 
         nRetCode = FALSE;
@@ -1043,7 +1043,7 @@ SHPHandle SHPAPI_CALL SHPCreateLL(const char *pszLayer, int nShapeType,
         char szErrorMsg[200];
         snprintf(szErrorMsg, sizeof(szErrorMsg), "Failed to create file %s: %s",
                  pszFullname, strerror(errno));
-        psHooks->Error(szErrorMsg);
+        psHooks->Error(psHooks->userData, szErrorMsg);
 
         free(pszFullname);
         return NULL;
@@ -1056,7 +1056,7 @@ SHPHandle SHPAPI_CALL SHPCreateLL(const char *pszLayer, int nShapeType,
         char szErrorMsg[200];
         snprintf(szErrorMsg, sizeof(szErrorMsg), "Failed to create file %s: %s",
                  pszFullname, strerror(errno));
-        psHooks->Error(szErrorMsg);
+        psHooks->Error(psHooks->userData, szErrorMsg);
 
         free(pszFullname);
         psHooks->FClose(fpSHP);
@@ -1106,7 +1106,7 @@ SHPHandle SHPAPI_CALL SHPCreateLL(const char *pszLayer, int nShapeType,
         snprintf(szErrorMsg, sizeof(szErrorMsg),
                  "Failed to write .shp header: %s", strerror(errno));
         szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-        psHooks->Error(szErrorMsg);
+        psHooks->Error(psHooks->userData, szErrorMsg);
 
         free(pszFullname);
         psHooks->FClose(fpSHP);
@@ -1129,7 +1129,7 @@ SHPHandle SHPAPI_CALL SHPCreateLL(const char *pszLayer, int nShapeType,
         snprintf(szErrorMsg, sizeof(szErrorMsg),
                  "Failure writing .shx header: %s", strerror(errno));
         szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-        psHooks->Error(szErrorMsg);
+        psHooks->Error(psHooks->userData, szErrorMsg);
 
         free(pszFullname);
         psHooks->FClose(fpSHP);
@@ -1154,7 +1154,7 @@ SHPHandle SHPAPI_CALL SHPCreateLL(const char *pszLayer, int nShapeType,
     if (psSHP->panRecOffset == SHPLIB_NULLPTR ||
         psSHP->panRecSize == SHPLIB_NULLPTR)
     {
-        psSHP->sHooks.Error("Not enough memory to allocate requested memory");
+        psSHP->sHooks.Error(psSHP->sHooks.userData, "Not enough memory to allocate requested memory");
         psSHP->sHooks.FClose(psSHP->fpSHP);
         psSHP->sHooks.FClose(psSHP->fpSHX);
         if (psSHP->panRecOffset)
@@ -1405,7 +1405,7 @@ int SHPAPI_CALL SHPWriteObject(SHPHandle psSHP, int nShapeId,
                                     sizeof(unsigned int) * nNewMaxRecords));
         if (panRecOffsetNew == SHPLIB_NULLPTR)
         {
-            psSHP->sHooks.Error("Failed to write shape object. "
+            psSHP->sHooks.Error(psSHP->sHooks.userData, "Failed to write shape object. "
                                 "Memory allocation error.");
             return -1;
         }
@@ -1416,7 +1416,7 @@ int SHPAPI_CALL SHPWriteObject(SHPHandle psSHP, int nShapeId,
             realloc(psSHP->panRecSize, sizeof(unsigned int) * nNewMaxRecords));
         if (panRecSizeNew == SHPLIB_NULLPTR)
         {
-            psSHP->sHooks.Error("Failed to write shape object. "
+            psSHP->sHooks.Error(psSHP->sHooks.userData, "Failed to write shape object. "
                                 "Memory allocation error.");
             return -1;
         }
@@ -1438,14 +1438,14 @@ int SHPAPI_CALL SHPWriteObject(SHPHandle psSHP, int nShapeId,
     const unsigned nExtraSpaceForGeomHeader = 128;
     if (nRecMaxSize > UINT_MAX - nExtraSpaceForGeomHeader)
     {
-        psSHP->sHooks.Error("Failed to write shape object. Too big geometry.");
+        psSHP->sHooks.Error(psSHP->sHooks.userData, "Failed to write shape object. Too big geometry.");
         return -1;
     }
     nRecMaxSize += nExtraSpaceForGeomHeader;
     unsigned char *pabyRec = STATIC_CAST(unsigned char *, malloc(nRecMaxSize));
     if (pabyRec == SHPLIB_NULLPTR)
     {
-        psSHP->sHooks.Error("Failed to write shape object. "
+        psSHP->sHooks.Error(psSHP->sHooks.userData, "Failed to write shape object. "
                             "Memory allocation error.");
         return -1;
     }
@@ -1728,7 +1728,7 @@ int SHPAPI_CALL SHPWriteObject(SHPHandle psSHP, int nShapeId,
                      "The current record of size %u cannot be added.",
                      psSHP->nFileSize, nRecordSize);
             str[sizeof(str) - 1] = '\0';
-            psSHP->sHooks.Error(str);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, str);
             free(pabyRec);
             return -1;
         }
@@ -1779,7 +1779,7 @@ int SHPAPI_CALL SHPWriteObject(SHPHandle psSHP, int nShapeId,
                      ".shp file: %s",
                      strerror(errno));
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
 
             free(pabyRec);
             return -1;
@@ -1794,7 +1794,7 @@ int SHPAPI_CALL SHPWriteObject(SHPHandle psSHP, int nShapeId,
                  "bytes to .shp file: %s",
                  nRecordSize, strerror(errno));
         szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-        psSHP->sHooks.Error(szErrorMsg);
+        psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
 
         free(pabyRec);
         return -1;
@@ -1946,7 +1946,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      100 + 8 * hEntity);
             str[sizeof(str) - 1] = '\0';
 
-            psSHP->sHooks.Error(str);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, str);
             return SHPLIB_NULLPTR;
         }
         if (!bBigEndian)
@@ -1960,7 +1960,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
             snprintf(str, sizeof(str), "Invalid offset for entity %d", hEntity);
             str[sizeof(str) - 1] = '\0';
 
-            psSHP->sHooks.Error(str);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, str);
             return SHPLIB_NULLPTR;
         }
         if (nLength > STATIC_CAST(unsigned int, INT_MAX / 2 - 4))
@@ -1969,7 +1969,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
             snprintf(str, sizeof(str), "Invalid length for entity %d", hEntity);
             str[sizeof(str) - 1] = '\0';
 
-            psSHP->sHooks.Error(str);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, str);
             return SHPLIB_NULLPTR;
         }
 
@@ -2020,7 +2020,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                          nEntitySize, psSHP->panRecOffset[hEntity]);
                 str[sizeof(str) - 1] = '\0';
 
-                psSHP->sHooks.Error(str);
+                psSHP->sHooks.Error(psSHP->sHooks.userData, str);
                 return SHPLIB_NULLPTR;
             }
         }
@@ -2036,7 +2036,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      "Probably broken SHP file",
                      nNewBufSize);
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
             return SHPLIB_NULLPTR;
         }
 
@@ -2066,7 +2066,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                  psSHP->panRecOffset[hEntity]);
         str[sizeof(str) - 1] = '\0';
 
-        psSHP->sHooks.Error(str);
+        psSHP->sHooks.Error(psSHP->sHooks.userData, str);
         return SHPLIB_NULLPTR;
     }
 
@@ -2096,7 +2096,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      hEntity);
             str[sizeof(str) - 1] = '\0';
 
-            psSHP->sHooks.Error(str);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, str);
             return SHPLIB_NULLPTR;
         }
     }
@@ -2113,7 +2113,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                  nEntitySize, psSHP->panRecOffset[hEntity]);
         str[sizeof(str) - 1] = '\0';
 
-        psSHP->sHooks.Error(str);
+        psSHP->sHooks.Error(psSHP->sHooks.userData, str);
         return SHPLIB_NULLPTR;
     }
 
@@ -2124,7 +2124,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                  "Corrupted .shp file : shape %d : nEntitySize = %d", hEntity,
                  nEntitySize);
         szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-        psSHP->sHooks.Error(szErrorMsg);
+        psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
         return SHPLIB_NULLPTR;
     }
     int nSHPType;
@@ -2141,7 +2141,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
     {
         if (psSHP->psCachedObject->bFastModeReadObject)
         {
-            psSHP->sHooks.Error("Invalid read pattern in fast read mode. "
+            psSHP->sHooks.Error(psSHP->sHooks.userData, "Invalid read pattern in fast read mode. "
                                 "SHPDestroyObject() should be called.");
             return SHPLIB_NULLPTR;
         }
@@ -2173,7 +2173,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      "Corrupted .shp file : shape %d : nEntitySize = %d",
                      hEntity, nEntitySize);
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
             SHPDestroyObject(psShape);
             return SHPLIB_NULLPTR;
         }
@@ -2217,7 +2217,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      "Corrupted .shp file : shape %d, nPoints=%u, nParts=%u.",
                      hEntity, nPoints, nParts);
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
             SHPDestroyObject(psShape);
             return SHPLIB_NULLPTR;
         }
@@ -2244,7 +2244,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      "nEntitySize=%d.",
                      hEntity, nPoints, nParts, nEntitySize);
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
             SHPDestroyObject(psShape);
             return SHPLIB_NULLPTR;
         }
@@ -2290,7 +2290,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      "Probably broken SHP file",
                      nPoints, nParts, hEntity);
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
             SHPDestroyObject(psShape);
             return SHPLIB_NULLPTR;
         }
@@ -2320,7 +2320,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                          hEntity, i, psShape->panPartStart[i],
                          psShape->nVertices);
                 szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-                psSHP->sHooks.Error(szErrorMsg);
+                psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
                 SHPDestroyObject(psShape);
                 return SHPLIB_NULLPTR;
             }
@@ -2334,7 +2334,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                          hEntity, i, psShape->panPartStart[i], i - 1,
                          psShape->panPartStart[i - 1]);
                 szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-                psSHP->sHooks.Error(szErrorMsg);
+                psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
                 SHPDestroyObject(psShape);
                 return SHPLIB_NULLPTR;
             }
@@ -2450,7 +2450,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      "Corrupted .shp file : shape %d : nEntitySize = %d",
                      hEntity, nEntitySize);
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
             SHPDestroyObject(psShape);
             return SHPLIB_NULLPTR;
         }
@@ -2468,7 +2468,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      "Corrupted .shp file : shape %d : nPoints = %u", hEntity,
                      nPoints);
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
             SHPDestroyObject(psShape);
             return SHPLIB_NULLPTR;
         }
@@ -2486,7 +2486,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      "nEntitySize = %d",
                      hEntity, nPoints, nEntitySize);
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
             SHPDestroyObject(psShape);
             return SHPLIB_NULLPTR;
         }
@@ -2524,7 +2524,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      "Probably broken SHP file",
                      nPoints, hEntity);
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
             SHPDestroyObject(psShape);
             return SHPLIB_NULLPTR;
         }
@@ -2646,7 +2646,7 @@ SHPObject SHPAPI_CALL1(*) SHPReadObject(SHPHandle psSHP, int hEntity)
                      "Corrupted .shp file : shape %d : nEntitySize = %d",
                      hEntity, nEntitySize);
             szErrorMsg[sizeof(szErrorMsg) - 1] = '\0';
-            psSHP->sHooks.Error(szErrorMsg);
+            psSHP->sHooks.Error(psSHP->sHooks.userData, szErrorMsg);
             SHPDestroyObject(psShape);
             return SHPLIB_NULLPTR;
         }

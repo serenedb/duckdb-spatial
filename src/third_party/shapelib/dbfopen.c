@@ -164,7 +164,7 @@ static bool DBFFlushRecord(DBFHandle psDBF) {
 				char szMessage[128];
 				snprintf(szMessage, sizeof(szMessage), "Failure seeking to position before writing DBF record %d.",
 				         psDBF->nCurrentRecord);
-				psDBF->sHooks.Error(szMessage);
+				psDBF->sHooks.Error(psDBF->sHooks.userData, szMessage);
 				return false;
 			}
 		}
@@ -172,7 +172,7 @@ static bool DBFFlushRecord(DBFHandle psDBF) {
 		if (psDBF->sHooks.FWrite(psDBF->pszCurrentRecord, psDBF->nRecordLength, 1, psDBF->fp) != 1) {
 			char szMessage[128];
 			snprintf(szMessage, sizeof(szMessage), "Failure writing DBF record %d.", psDBF->nCurrentRecord);
-			psDBF->sHooks.Error(szMessage);
+			psDBF->sHooks.Error(psDBF->sHooks.userData, szMessage);
 			return false;
 		}
 
@@ -206,14 +206,14 @@ static bool DBFLoadRecord(DBFHandle psDBF, int iRecord) {
 		if (psDBF->sHooks.FSeek(psDBF->fp, nRecordOffset, SEEK_SET) != 0) {
 			char szMessage[128];
 			snprintf(szMessage, sizeof(szMessage), "fseek(%ld) failed on DBF file.", STATIC_CAST(long, nRecordOffset));
-			psDBF->sHooks.Error(szMessage);
+			psDBF->sHooks.Error(psDBF->sHooks.userData, szMessage);
 			return false;
 		}
 
 		if (psDBF->sHooks.FRead(psDBF->pszCurrentRecord, psDBF->nRecordLength, 1, psDBF->fp) != 1) {
 			char szMessage[128];
 			snprintf(szMessage, sizeof(szMessage), "fread(%d) failed on DBF file.", psDBF->nRecordLength);
-			psDBF->sHooks.Error(szMessage);
+			psDBF->sHooks.Error(psDBF->sHooks.userData, szMessage);
 			return false;
 		}
 
@@ -695,7 +695,7 @@ int SHPAPI_CALL DBFAddNativeFieldType(DBFHandle psDBF, const char *pszFieldName,
 		         "Cannot add field %s. Header length limit reached "
 		         "(max 65535 bytes, 2046 fields).",
 		         pszFieldName);
-		psDBF->sHooks.Error(szMessage);
+		psDBF->sHooks.Error(psDBF->sHooks.userData, szMessage);
 		return -1;
 	}
 
@@ -714,7 +714,7 @@ int SHPAPI_CALL DBFAddNativeFieldType(DBFHandle psDBF, const char *pszFieldName,
 		         "Cannot add field %s. Record length limit reached "
 		         "(max 65535 bytes).",
 		         pszFieldName);
-		psDBF->sHooks.Error(szMessage);
+		psDBF->sHooks.Error(psDBF->sHooks.userData, szMessage);
 		return -1;
 	}
 

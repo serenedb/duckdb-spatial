@@ -176,7 +176,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
         abyHeader[4] != 0xFF || abyHeader[5] != 0xFF || abyHeader[6] != 0xFE ||
         abyHeader[7] != 0x70)
     {
-        hSBN->sHooks.Error(".sbn file is unreadable, or corrupt.");
+        hSBN->sHooks.Error(hSBN->sHooks.userData, ".sbn file is unreadable, or corrupt.");
         SBNCloseDiskTree(hSBN);
         return SHPLIB_NULLPTR;
     }
@@ -200,7 +200,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
 
     if (hSBN->dfMinX > hSBN->dfMaxX || hSBN->dfMinY > hSBN->dfMaxY)
     {
-        hSBN->sHooks.Error("Invalid extent in .sbn file.");
+        hSBN->sHooks.Error(hSBN->sHooks.userData, "Invalid extent in .sbn file.");
         SBNCloseDiskTree(hSBN);
         return SHPLIB_NULLPTR;
     }
@@ -215,7 +215,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
         char szErrorMsg[64];
         snprintf(szErrorMsg, sizeof(szErrorMsg),
                  "Invalid shape count in .sbn : %d", nShapeCount);
-        hSBN->sHooks.Error(szErrorMsg);
+        hSBN->sHooks.Error(hSBN->sHooks.userData, szErrorMsg);
         SBNCloseDiskTree(hSBN);
         return SHPLIB_NULLPTR;
     }
@@ -243,7 +243,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
 
     if (READ_MSB_INT(abyHeader + 100) != 1)
     {
-        hSBN->sHooks.Error("Unexpected bin id");
+        hSBN->sHooks.Error(hSBN->sHooks.userData, "Unexpected bin id");
         SBNCloseDiskTree(hSBN);
         return SHPLIB_NULLPTR;
     }
@@ -265,7 +265,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
         char szErrorMsg[64];
         snprintf(szErrorMsg, sizeof(szErrorMsg),
                  "Invalid node descriptor size in .sbn : %d", nNodeDescSize);
-        hSBN->sHooks.Error(szErrorMsg);
+        hSBN->sHooks.Error(hSBN->sHooks.userData, szErrorMsg);
         SBNCloseDiskTree(hSBN);
         return SHPLIB_NULLPTR;
     }
@@ -279,7 +279,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
     {
         free(pabyData);
         free(pasNodeDescriptor);
-        hSBN->sHooks.Error("Out of memory error");
+        hSBN->sHooks.Error(hSBN->sHooks.userData, "Out of memory error");
         SBNCloseDiskTree(hSBN);
         return SHPLIB_NULLPTR;
     }
@@ -291,7 +291,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
     {
         free(pabyData);
         free(pasNodeDescriptor);
-        hSBN->sHooks.Error("Cannot read node descriptors");
+        hSBN->sHooks.Error(hSBN->sHooks.userData, "Cannot read node descriptors");
         SBNCloseDiskTree(hSBN);
         return SHPLIB_NULLPTR;
     }
@@ -313,7 +313,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
         if ((nBinStart > 0 && nNodeShapeCount == 0) || nNodeShapeCount < 0 ||
             nNodeShapeCount > nShapeCount)
         {
-            hSBN->sHooks.Error("Inconsistent shape count in bin");
+            hSBN->sHooks.Error(hSBN->sHooks.userData, "Inconsistent shape count in bin");
             SBNCloseDiskTree(hSBN);
             return SHPLIB_NULLPTR;
         }
@@ -329,7 +329,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
 
     if (nCurNode >= nMaxNodes)
     {
-        hSBN->sHooks.Error("All nodes are empty");
+        hSBN->sHooks.Error(hSBN->sHooks.userData, "All nodes are empty");
         SBNCloseDiskTree(hSBN);
         return SHPLIB_NULLPTR;
     }
@@ -362,7 +362,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
 
         if (nBinId != nExpectedBinId)
         {
-            hSBN->sHooks.Error("Unexpected bin id");
+            hSBN->sHooks.Error(hSBN->sHooks.userData, "Unexpected bin id");
             SBNCloseDiskTree(hSBN);
             return SHPLIB_NULLPTR;
         }
@@ -371,7 +371,7 @@ SBNSearchHandle SBNOpenDiskTree(const char *pszSBNFilename,
         /* If there are more, then they are located in continuous bins */
         if ((nBinSize % 8) != 0 || nBinSize <= 0 || nBinSize > 100 * 8)
         {
-            hSBN->sHooks.Error("Unexpected bin size");
+            hSBN->sHooks.Error(hSBN->sHooks.userData, "Unexpected bin size");
             SBNCloseDiskTree(hSBN);
             return SHPLIB_NULLPTR;
         }
@@ -440,7 +440,7 @@ static bool SBNAddShapeId(SearchStruct *psSearch, int nShapeId)
                                        psSearch->nShapeAlloc * sizeof(int)));
         if (pNewPtr == SHPLIB_NULLPTR)
         {
-            psSearch->hSBN->sHooks.Error("Out of memory error");
+            psSearch->hSBN->sHooks.Error(psSearch->hSBN->sHooks.userData, "Out of memory error");
             return false;
         }
         psSearch->panShapeId = pNewPtr;
@@ -549,7 +549,7 @@ static bool SBNSearchDiskInternal(SearchStruct *psSearch, int nDepth,
 #endif
             if (hSBN->sHooks.FRead(abyBinHeader, 8, 1, hSBN->fpSBN) != 1)
             {
-                hSBN->sHooks.Error("I/O error");
+                hSBN->sHooks.Error(hSBN->sHooks.userData, "I/O error");
                 free(psNode->pabyShapeDesc);
                 psNode->pabyShapeDesc = SHPLIB_NULLPTR;
                 return false;
@@ -557,7 +557,7 @@ static bool SBNSearchDiskInternal(SearchStruct *psSearch, int nDepth,
 
             if (READ_MSB_INT(abyBinHeader + 0) != psNode->nBinStart + i)
             {
-                hSBN->sHooks.Error("Unexpected bin id");
+                hSBN->sHooks.Error(hSBN->sHooks.userData, "Unexpected bin id");
                 free(psNode->pabyShapeDesc);
                 psNode->pabyShapeDesc = SHPLIB_NULLPTR;
                 return false;
@@ -571,7 +571,7 @@ static bool SBNSearchDiskInternal(SearchStruct *psSearch, int nDepth,
             /* Bins are always limited to 100 features */
             if ((nBinSize % 8) != 0 || nShapes <= 0 || nShapes > 100)
             {
-                hSBN->sHooks.Error("Unexpected bin size");
+                hSBN->sHooks.Error(hSBN->sHooks.userData, "Unexpected bin size");
                 free(psNode->pabyShapeDesc);
                 psNode->pabyShapeDesc = SHPLIB_NULLPTR;
                 return false;
@@ -581,7 +581,7 @@ static bool SBNSearchDiskInternal(SearchStruct *psSearch, int nDepth,
             {
                 free(psNode->pabyShapeDesc);
                 psNode->pabyShapeDesc = SHPLIB_NULLPTR;
-                hSBN->sHooks.Error("Inconsistent shape count for bin");
+                hSBN->sHooks.Error(hSBN->sHooks.userData, "Inconsistent shape count for bin");
                 return false;
             }
 
@@ -601,7 +601,7 @@ static bool SBNSearchDiskInternal(SearchStruct *psSearch, int nDepth,
 #endif
             if (hSBN->sHooks.FRead(pabyBinShape, nBinSize, 1, hSBN->fpSBN) != 1)
             {
-                hSBN->sHooks.Error("I/O error");
+                hSBN->sHooks.Error(hSBN->sHooks.userData, "I/O error");
                 free(psNode->pabyShapeDesc);
                 psNode->pabyShapeDesc = SHPLIB_NULLPTR;
                 return false;
@@ -644,7 +644,7 @@ static bool SBNSearchDiskInternal(SearchStruct *psSearch, int nDepth,
                     {
                         /* printf("shape %d %d %d %d\n", bMinX, bMinY, bMaxX, bMaxY);*/
                         /* printf("node  %d %d %d %d\n", bNodeMinX, bNodeMinY, bNodeMaxX, bNodeMaxY);*/
-                        hSBN->sHooks.Error("Invalid shape bounding box in bin");
+                        hSBN->sHooks.Error(hSBN->sHooks.userData, "Invalid shape bounding box in bin");
                         free(psNode->pabyShapeDesc);
                         psNode->pabyShapeDesc = SHPLIB_NULLPTR;
                         return false;
@@ -683,7 +683,7 @@ static bool SBNSearchDiskInternal(SearchStruct *psSearch, int nDepth,
         {
             free(psNode->pabyShapeDesc);
             psNode->pabyShapeDesc = SHPLIB_NULLPTR;
-            hSBN->sHooks.Error("Inconsistent shape count for bin");
+            hSBN->sHooks.Error(hSBN->sHooks.userData, "Inconsistent shape count for bin");
             return false;
         }
 
