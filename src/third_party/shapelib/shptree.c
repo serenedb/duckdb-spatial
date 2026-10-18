@@ -803,21 +803,21 @@ static bool SHPSearchDiskTreeNode(SHPTreeDiskHandle hDiskTree,
     /* Check that we could read all previous values */
     if (nFReadAcc != 1 + 2 + 2 + 1)
     {
-        hDiskTree->sHooks.Error("I/O error");
+        hDiskTree->sHooks.Error(hDiskTree->sHooks.userData, "I/O error");
         return false;
     }
 
     /* Sanity checks to avoid int overflows in later computation */
     if (offset > INT_MAX - sizeof(int))
     {
-        hDiskTree->sHooks.Error("Invalid value for offset");
+        hDiskTree->sHooks.Error(hDiskTree->sHooks.userData, "Invalid value for offset");
         return false;
     }
 
     if (numshapes > (INT_MAX - offset - sizeof(int)) / sizeof(int) ||
         numshapes > INT_MAX / sizeof(int) - *pnResultCount)
     {
-        hDiskTree->sHooks.Error("Invalid value for numshapes");
+        hDiskTree->sHooks.Error(hDiskTree->sHooks.userData, "Invalid value for numshapes");
         return false;
     }
 
@@ -853,7 +853,7 @@ static bool SHPSearchDiskTreeNode(SHPTreeDiskHandle hDiskTree,
 
             if (pNewBuffer == SHPLIB_NULLPTR)
             {
-                hDiskTree->sHooks.Error("Out of memory error");
+                hDiskTree->sHooks.Error(hDiskTree->sHooks.userData, "Out of memory error");
                 return false;
             }
 
@@ -864,7 +864,7 @@ static bool SHPSearchDiskTreeNode(SHPTreeDiskHandle hDiskTree,
                                     sizeof(int), numshapes,
                                     hDiskTree->fpQIX) != numshapes)
         {
-            hDiskTree->sHooks.Error("I/O error");
+            hDiskTree->sHooks.Error(hDiskTree->sHooks.userData, "I/O error");
             return false;
         }
 
@@ -882,14 +882,14 @@ static bool SHPSearchDiskTreeNode(SHPTreeDiskHandle hDiskTree,
     /* -------------------------------------------------------------------- */
     if (hDiskTree->sHooks.FRead(&numsubnodes, 4, 1, hDiskTree->fpQIX) != 1)
     {
-        hDiskTree->sHooks.Error("I/O error");
+        hDiskTree->sHooks.Error(hDiskTree->sHooks.userData, "I/O error");
         return false;
     }
     if (bNeedSwap)
         SwapWord(4, &numsubnodes);
     if (numsubnodes > 0 && nRecLevel == 32)
     {
-        hDiskTree->sHooks.Error("Shape tree is too deep");
+        hDiskTree->sHooks.Error(hDiskTree->sHooks.userData, "Shape tree is too deep");
         return false;
     }
 

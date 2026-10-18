@@ -126,7 +126,7 @@ extern "C"
         int (*FClose)(SAFile file);
         int (*Remove)(void *userData, const char *filename);
 
-        void (*Error)(const char *message);
+        void (*Error)(void *userData, const char *message);
         double (*Atof)(const char *str);
     } SAHooks;
 

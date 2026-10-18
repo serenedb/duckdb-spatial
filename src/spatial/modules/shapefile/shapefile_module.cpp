@@ -121,9 +121,17 @@ struct EncodingUtil {
 //======================================================================================================================
 // File System Hooks
 //======================================================================================================================
+struct ShapefileIO {
+	explicit ShapefileIO(FileSystem &fs_p) : fs(fs_p) {
+	}
+
+	FileSystem &fs;
+	string error;
+};
+
 SAFile DuckDBShapefileOpen(void *userData, const char *filename, const char *access_mode) {
 	try {
-		auto &fs = *static_cast<FileSystem *>(userData);
+		auto &fs = static_cast<ShapefileIO *>(userData)->fs;
 		const auto flags = FileFlags::FILE_FLAGS_READ | FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
 		auto file_handle = fs.OpenFile(filename, flags);
 		if (!file_handle) {
@@ -193,7 +201,7 @@ int DuckDBShapefileClose(SAFile file) {
 
 int DuckDBShapefileRemove(void *userData, const char *filename) {
 	try {
-		auto &fs = *reinterpret_cast<FileSystem *>(userData);
+		auto &fs = static_cast<ShapefileIO *>(userData)->fs;
 		const auto flags = FileFlags::FILE_FLAGS_WRITE | FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
 		const auto file = fs.OpenFile(filename, flags);
 		if (!file) {
@@ -211,18 +219,25 @@ int DuckDBShapefileRemove(void *userData, const char *filename) {
 	}
 }
 
-void DuckDBShapefileError(const char *message) {
-	// TODO: Fix this?
-	// We cant throw an exception here because the shapefile library is not
-	// exception safe. Instead we should store it somewhere...
-	// Maybe another client context cache?
-
-	// Note that we need to copy the message
-
-	fprintf(stderr, "%s\n", message);
+void DuckDBShapefileError(void *userData, const char *message) {
+	auto &io = *static_cast<ShapefileIO *>(userData);
+	if (io.error.empty()) {
+		io.error = message;
+	}
 }
 
-SAHooks GetDuckDBHooks(FileSystem &fs) {
+[[noreturn]] void ThrowShapefileError(const SAHooks &hooks, const string &fallback) {
+	const auto &io = *static_cast<const ShapefileIO *>(hooks.userData);
+	throw IOException(io.error.empty() ? fallback : io.error);
+}
+
+void CheckShapefileError(const SAHooks &hooks) {
+	if (!static_cast<const ShapefileIO *>(hooks.userData)->error.empty()) {
+		ThrowShapefileError(hooks, string());
+	}
+}
+
+SAHooks GetDuckDBHooks(ShapefileIO &io) {
 	SAHooks hooks;
 	hooks.FOpen = DuckDBShapefileOpen;
 	hooks.FRead = DuckDBShapefileRead;
@@ -235,26 +250,32 @@ SAHooks GetDuckDBHooks(FileSystem &fs) {
 
 	hooks.Error = DuckDBShapefileError;
 	hooks.Atof = std::atof;
-	hooks.userData = &fs;
+	hooks.userData = &io;
 	return hooks;
 }
 
-DBFHandlePtr OpenDBFFile(FileSystem &fs, const string &filename) {
-	const auto hooks = GetDuckDBHooks(fs);
+DBFHandlePtr OpenDBFFile(ShapefileIO &io, const string &filename) {
+	const auto hooks = GetDuckDBHooks(io);
 	const auto handle = DBFOpenLL(filename.c_str(), "rb", &hooks);
 
 	if (!handle) {
-		throw IOException("Failed to open DBF file %s", filename.c_str());
+		if (io.error.empty()) {
+			throw IOException("Failed to open DBF file %s", filename);
+		}
+		throw IOException("Failed to open DBF file %s: %s", filename, io.error);
 	}
 
 	return DBFHandlePtr(handle);
 }
 
-SHPHandlePtr OpenSHPFile(FileSystem &fs, const string &filename) {
-	const auto hooks = GetDuckDBHooks(fs);
+SHPHandlePtr OpenSHPFile(ShapefileIO &io, const string &filename) {
+	const auto hooks = GetDuckDBHooks(io);
 	const auto handle = SHPOpenLL(filename.c_str(), "rb", &hooks);
 	if (!handle) {
-		throw IOException("Failed to open SHP file %s", filename);
+		if (io.error.empty()) {
+			throw IOException("Failed to open SHP file %s", filename);
+		}
+		throw IOException("Failed to open SHP file %s: %s", filename, io.error);
 	}
 	return SHPHandlePtr(handle);
 }
@@ -298,7 +319,8 @@ struct ST_ReadSHP {
 		auto result = make_uniq<ShapefileBindData>(file_name);
 
 		auto &fs = FileSystem::GetFileSystem(context);
-		auto shp_handle = OpenSHPFile(fs, file_name);
+		ShapefileIO io(fs);
+		auto shp_handle = OpenSHPFile(io, file_name);
 
 		// Get info about the geometry
 		SHPGetInfo(shp_handle.get(), &result->shape_count, &result->shape_type, result->min_bound, result->max_bound);
@@ -357,7 +379,7 @@ struct ST_ReadSHP {
 
 		// Get info about the attributes
 		// Remove file extension and replace with .dbf
-		auto dbf_handle = OpenDBFFile(fs, base_name + ".dbf");
+		auto dbf_handle = OpenDBFFile(io, base_name + ".dbf");
 
 		// TODO: Try to get the encoding from the dbf if there is no .cpg file
 		// auto code_page = DBFGetCodePage(dbf_handle.get());
@@ -426,21 +448,21 @@ struct ST_ReadSHP {
 	//------------------------------------------------------------------------------------------------------------------
 	struct ShapefileGlobalState final : GlobalTableFunctionState {
 		int shape_idx;
+		ShapefileIO io;
 		SHPHandlePtr shp_handle;
 		DBFHandlePtr dbf_handle;
 		ArenaAllocator arena;
 		vector<idx_t> column_ids;
 
 		explicit ShapefileGlobalState(ClientContext &context, const string &file_name, vector<idx_t> column_ids_p)
-		    : shape_idx(0), arena(BufferAllocator::Get(context)), column_ids(std::move(column_ids_p)) {
-			auto &fs = FileSystem::GetFileSystem(context);
-
-			shp_handle = OpenSHPFile(fs, file_name);
+		    : shape_idx(0), io(FileSystem::GetFileSystem(context)), arena(BufferAllocator::Get(context)),
+		      column_ids(std::move(column_ids_p)) {
+			shp_handle = OpenSHPFile(io, file_name);
 
 			// Remove file extension and replace with .dbf
 			auto dot_idx = file_name.find_last_of('.');
 			auto base_name = file_name.substr(0, dot_idx);
-			dbf_handle = OpenDBFFile(fs, base_name + ".dbf");
+			dbf_handle = OpenDBFFile(io, base_name + ".dbf");
 		}
 	};
 
@@ -637,7 +659,11 @@ struct ST_ReadSHP {
 	static void ConvertGeomLoop(Vector &result, int record_start, idx_t count, SHPHandle &shp_handle,
 	                            ArenaAllocator &arena) {
 		for (idx_t result_idx = 0; result_idx < count; result_idx++) {
-			auto shape = SHPObjectPtr(SHPReadObject(shp_handle, record_start++));
+			const auto shape_idx = record_start++;
+			auto shape = SHPObjectPtr(SHPReadObject(shp_handle, shape_idx));
+			if (!shape) {
+				ThrowShapefileError(shp_handle->sHooks, StringUtil::Format("Failed to read shape %d", shape_idx));
+			}
 			if (shape->nSHPType == SHPT_NULL) {
 				FlatVector::SetNull(result, result_idx, true);
 				continue;
@@ -744,6 +770,7 @@ struct ST_ReadSHP {
 		int record_idx = record_start;
 		for (idx_t row_idx = 0; row_idx < count; row_idx++) {
 			if (DBFIsAttributeNULL(dbf_handle, record_idx, field_idx)) {
+				CheckShapefileError(dbf_handle->sHooks);
 				FlatVector::SetNull(result, row_idx, true);
 			} else {
 				FlatVector::GetDataMutable<typename OP::TYPE>(result)[row_idx] =
@@ -759,6 +786,7 @@ struct ST_ReadSHP {
 		vector<data_t> conversion_buffer;
 		for (idx_t row_idx = 0; row_idx < count; row_idx++) {
 			if (DBFIsAttributeNULL(dbf_handle, record_idx, field_idx)) {
+				CheckShapefileError(dbf_handle->sHooks);
 				FlatVector::SetNull(result, row_idx, true);
 			} else {
 				auto string_bytes = DBFReadStringAttribute(dbf_handle, record_idx, field_idx);
@@ -1024,7 +1052,8 @@ struct Shapefile_Meta {
 			auto &file = bind_data.files[state.current_file_idx + out_idx];
 
 			auto file_handle = fs.OpenFile(file, FileFlags::FILE_FLAGS_READ);
-			auto shp_handle = OpenSHPFile(fs, file.path);
+			ShapefileIO io(fs);
+			auto shp_handle = OpenSHPFile(io, file.path);
 
 			double min_bound[4];
 			double max_bound[4];
