@@ -1,6 +1,7 @@
 #pragma once
 
 #include "bbox.hpp"
+#include "duckdb/common/types/string_type.hpp"
 
 #include <cstddef>
 #include <cstdint>
