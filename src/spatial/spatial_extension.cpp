@@ -2,6 +2,7 @@
 #include "spatial/spatial_extension.hpp"
 
 #include "duckdb.hpp"
+#include "duckdb/main/engine_host.hpp"
 #if SPATIAL_USE_RTREE
 #include "index/rtree/rtree.hpp"
 #include "spatial/index/rtree/rtree_module.hpp"
@@ -38,7 +39,6 @@ static void LoadInternal(ExtensionLoader &loader) {
 	RegisterSpatialScalarFunctions(loader);
 	RegisterSpatialAggregateFunctions(loader);
 	RegisterSpatialTableFunctions(loader);
-	SpatialJoinOptimizer::Register(loader);
 
 #if SPATIAL_USE_GEOS
 	RegisterGEOSModule(loader);
@@ -59,7 +59,10 @@ static void LoadInternal(ExtensionLoader &loader) {
 	RTreeModule::RegisterIndexPlanScan(loader);
 #endif
 
-	RegisterSpatialOperatorExtension(loader.GetDatabaseInstance());
+	if (!EngineHost::IsInstalled()) {
+		SpatialJoinOptimizer::Register(loader);
+		SpatialOperators::Register(loader.GetDatabaseInstance());
+	}
 }
 
 void SpatialExtension::Load(ExtensionLoader &loader) {
@@ -68,6 +71,14 @@ void SpatialExtension::Load(ExtensionLoader &loader) {
 
 std::string SpatialExtension::Name() {
 	return "spatial";
+}
+
+std::string SpatialExtension::Version() const {
+#ifdef EXT_VERSION_SPATIAL
+	return EXT_VERSION_SPATIAL;
+#else
+	return "";
+#endif
 }
 
 } // namespace duckdb
