@@ -23,30 +23,34 @@ public:
 	}
 
 	std::string GetName() override {
-		return "duckdb_spatial";
+		return SpatialOperators::EXTENSION_NAME;
 	}
 
 	unique_ptr<LogicalExtensionOperator> Deserialize(Deserializer &reader) override {
-		const auto operator_type = reader.ReadPropertyWithDefault<string>(300, "operator_type");
-
-#if SPATIAL_USE_RTREE
-		if (operator_type == LogicalCreateRTreeIndex::OPERATOR_TYPE_NAME) {
-			return LogicalCreateRTreeIndex::Deserialize(reader);
-		}
-#endif
-		if (operator_type == LogicalSpatialJoin::OPERATOR_TYPE_NAME) {
-			return LogicalSpatialJoin::Deserialize(reader);
-		}
-
-		throw SerializationException("This version of the spatial extension does not support operator type '%s!",
-		                             operator_type);
+		return SpatialOperators::Deserialize(reader);
 	}
 };
 
 } // namespace
 
-void RegisterSpatialOperatorExtension(DatabaseInstance &db) {
+void SpatialOperators::Register(DatabaseInstance &db) {
 	OperatorExtension::Register(db.config, make_shared_ptr<SpatialOperatorExtension>());
+}
+
+unique_ptr<LogicalExtensionOperator> SpatialOperators::Deserialize(Deserializer &reader) {
+	const auto operator_type = reader.ReadPropertyWithDefault<string>(300, "operator_type");
+
+#if SPATIAL_USE_RTREE
+	if (operator_type == LogicalCreateRTreeIndex::OPERATOR_TYPE_NAME) {
+		return LogicalCreateRTreeIndex::Deserialize(reader);
+	}
+#endif
+	if (operator_type == LogicalSpatialJoin::OPERATOR_TYPE_NAME) {
+		return LogicalSpatialJoin::Deserialize(reader);
+	}
+
+	throw SerializationException("This version of the spatial extension does not support operator type '%s!",
+	                             operator_type);
 }
 
 } // namespace duckdb

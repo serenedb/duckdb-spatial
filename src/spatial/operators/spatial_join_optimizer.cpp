@@ -411,20 +411,20 @@ static void InsertSpatialJoin(OptimizerExtensionInput &input, unique_ptr<Logical
 	TrySwapAnyJoin(input, plan);
 }
 
-static void TryInsertSpatialJoin(OptimizerExtensionInput &input, unique_ptr<LogicalOperator> &plan) {
+void SpatialJoinOptimizer::Optimize(OptimizerExtensionInput &input, unique_ptr<LogicalOperator> &plan) {
 
 	InsertSpatialJoin(input, plan);
 
 	// Recursively call this function on all children
 	for (auto &child : plan->children) {
-		TryInsertSpatialJoin(input, child);
+		Optimize(input, child);
 	}
 }
 
 void SpatialJoinOptimizer::Register(ExtensionLoader &loader) {
 
 	OptimizerExtension optimizer;
-	optimizer.optimize_function = TryInsertSpatialJoin;
+	optimizer.optimize_function = Optimize;
 
 	auto &db = loader.GetDatabaseInstance();
 	OptimizerExtension::Register(db.config, optimizer);
