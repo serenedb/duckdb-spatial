@@ -70,6 +70,14 @@ std::string SpatialExtension::Name() {
 	return "spatial";
 }
 
+std::string SpatialExtension::Version() const {
+#ifdef EXT_VERSION_SPATIAL
+	return EXT_VERSION_SPATIAL;
+#else
+	return "";
+#endif
+}
+
 } // namespace duckdb
 
 extern "C" {
