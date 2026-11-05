@@ -74,9 +74,7 @@ static unique_ptr<Expression> GetInversePredicate(ClientContext &context, unique
 	}
 
 	// Get the function from the catalog
-	auto &catalog = Catalog::GetSystemCatalog(context);
-	auto &entry = catalog.GetEntry<ScalarFunctionCatalogEntry>(
-	    context, QualifiedName(catalog.GetName(), Identifier::DefaultSchema(), Identifier(it->second)));
+	auto &entry = Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier(it->second));
 	const auto &inverse_func = *entry.functions.GetFunctionByArguments(
 	    context, {func.GetChildren()[0]->GetReturnType(), func.GetChildren()[1]->GetReturnType()});
 

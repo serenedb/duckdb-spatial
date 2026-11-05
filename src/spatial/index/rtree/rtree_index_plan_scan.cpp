@@ -119,9 +119,7 @@ public:
 	static bool TryGetBoundingBox(ClientContext &context, const Expression &expr, Box2D<float> &bbox) {
 
 		// make a new box expression
-		auto &catalog = Catalog::GetSystemCatalog(context);
-		auto &entry = catalog.GetEntry<ScalarFunctionCatalogEntry>(
-		    context, QualifiedName(catalog.GetName(), Identifier::DefaultSchema(), "ST_Extent_Approx"));
+		auto &entry = Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier("ST_Extent_Approx"));
 		const auto &func = *entry.functions.GetFunctionByArguments(context, {LogicalType::GEOMETRY()});
 
 		vector<unique_ptr<Expression>> children;

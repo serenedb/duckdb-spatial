@@ -112,9 +112,7 @@ RTreeIndex::RTreeIndex(const Identifier &name, IndexConstraintType index_constra
 
 	// Construct the key expression executor
 	auto &source_type = unbound_expressions[0]->GetReturnType();
-	auto &catalog = Catalog::GetSystemCatalog(context);
-	auto &entry = catalog.GetEntry<ScalarFunctionCatalogEntry>(
-	    context, QualifiedName(catalog.GetName(), Identifier::DefaultSchema(), "ST_Extent_Approx"));
+	auto &entry = Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier("ST_Extent_Approx"));
 	const auto &func = *entry.functions.GetFunctionByArguments(context, {source_type});
 	auto child_expr = make_uniq<BoundReferenceExpression>(source_type, 0);
 
