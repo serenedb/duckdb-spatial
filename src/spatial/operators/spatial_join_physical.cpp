@@ -420,9 +420,7 @@ private:
 //======================================================================================================================
 
 static unique_ptr<Expression> GetBBOXExpression(ClientContext &context, const LogicalType &geom_type) {
-	auto &catalog = Catalog::GetSystemCatalog(context);
-	auto &entry = catalog.GetEntry<ScalarFunctionCatalogEntry>(
-	    context, QualifiedName(catalog.GetName(), Identifier::DefaultSchema(), "ST_Extent_Approx"));
+	auto &entry = Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier("ST_Extent_Approx"));
 	const auto &func = *entry.functions.GetFunctionByArguments(context, {geom_type});
 
 	auto child_expr = make_uniq<BoundReferenceExpression>(geom_type, 0);
@@ -437,8 +435,7 @@ static unique_ptr<Expression> GetBBOXExpression(ClientContext &context, const Lo
 // Build a constant GEOMETRY value (a rectangular polygon) covering the given box by constant-folding ST_MakeEnvelope.
 // Used to construct the bounding-box filter pushed into the probe side.
 static Value MakeEnvelopeValue(ClientContext &context, const Box2D<float> &box) {
-	auto &catalog = Catalog::GetSystemCatalog(context);
-	auto &entry = catalog.GetEntry<ScalarFunctionCatalogEntry>(context, DEFAULT_SCHEMA, "ST_MakeEnvelope");
+	auto &entry = Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier("ST_MakeEnvelope"));
 	auto func = entry.functions.GetFunctionByArguments(
 	    context, {LogicalType::DOUBLE, LogicalType::DOUBLE, LogicalType::DOUBLE, LogicalType::DOUBLE});
 
@@ -458,8 +455,7 @@ static Value MakeEnvelopeValue(ClientContext &context, const Box2D<float> &box) 
 // - (the convention for expression filters, which are evaluated against the single filtered column).
 static unique_ptr<TableFilter> MakeBoundingBoxFilter(ClientContext &context, const Value &envelope,
                                                      const LogicalType &column_type) {
-	auto &catalog = Catalog::GetSystemCatalog(context);
-	auto &entry = catalog.GetEntry<ScalarFunctionCatalogEntry>(context, DEFAULT_SCHEMA, "ST_Intersects_Extent");
+	auto &entry = Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier("ST_Intersects_Extent"));
 	auto func = entry.functions.GetFunctionByArguments(context, {LogicalType::GEOMETRY(), LogicalType::GEOMETRY()});
 
 	// The column reference must carry the column's exact type (e.g. GEOMETRY with a CRS)
@@ -637,9 +633,7 @@ public:
 
 		auto &geom_type = op.build_side_key->GetReturnType();
 
-		auto &catalog = Catalog::GetSystemCatalog(context);
-		auto &entry = catalog.GetEntry<ScalarFunctionCatalogEntry>(
-		    context, QualifiedName(catalog.GetName(), Identifier::DefaultSchema(), "ST_IsEmpty"));
+		auto &entry = Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier("ST_IsEmpty"));
 		const auto &func = *entry.functions.GetFunctionByArguments(context, {geom_type});
 
 		vector<unique_ptr<Expression>> children;

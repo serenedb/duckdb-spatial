@@ -51,10 +51,7 @@ static PhysicalOperator &CreateNullFilter(PhysicalPlanGenerator &generator, cons
 	is_not_null_expr->GetChildrenMutable().push_back(bound_ref->Copy());
 
 	// Filter IS_NOT_EMPTY on the GEOMETRY column
-	auto &catalog = Catalog::GetSystemCatalog(context);
-	auto &is_empty_entry =
-	    catalog.GetEntry(context, CatalogType::SCALAR_FUNCTION_ENTRY, Identifier::DefaultSchema(), "ST_IsEmpty")
-	        .Cast<ScalarFunctionCatalogEntry>();
+	auto &is_empty_entry = Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier("ST_IsEmpty"));
 
 	auto is_empty_func = *is_empty_entry.functions.GetFunctionByArguments(context, {LogicalType::GEOMETRY()});
 	vector<unique_ptr<Expression>> is_empty_args;
@@ -74,12 +71,9 @@ static PhysicalOperator &CreateNullFilter(PhysicalPlanGenerator &generator, cons
 
 static PhysicalOperator &CreateBoundingBoxProjection(PhysicalPlanGenerator &planner, const LogicalOperator &op,
                                                      const vector<LogicalType> &types, ClientContext &context) {
-	auto &catalog = Catalog::GetSystemCatalog(context);
-
 	// Get the bounding box function
 	auto &bbox_func_entry =
-	    catalog.GetEntry(context, CatalogType::SCALAR_FUNCTION_ENTRY, Identifier::DefaultSchema(), "ST_Extent_Approx")
-	        .Cast<ScalarFunctionCatalogEntry>();
+	    Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier("ST_Extent_Approx"));
 	const auto &bbox_func = *bbox_func_entry.functions.GetFunctionByArguments(context, {LogicalType::GEOMETRY()});
 
 	auto geom_ref_expr = make_uniq_base<Expression, BoundReferenceExpression>(LogicalType::GEOMETRY(), 0);
@@ -100,12 +94,9 @@ static PhysicalOperator &CreateBoundingBoxProjection(PhysicalPlanGenerator &plan
 
 static PhysicalOperator &CreateOrderByMinX(PhysicalPlanGenerator &planner, const LogicalOperator &op,
                                            const vector<LogicalType> &types, ClientContext &context) {
-	auto &catalog = Catalog::GetSystemCatalog(context);
-
 	// Get the centroid value function
 	auto &centroid_func_entry =
-	    catalog.GetEntry(context, CatalogType::SCALAR_FUNCTION_ENTRY, Identifier::DefaultSchema(), "st_centroid")
-	        .Cast<ScalarFunctionCatalogEntry>();
+	    Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier("st_centroid"));
 	const auto &centroid_func = *centroid_func_entry.functions.GetFunctionByArguments(context, {GeoTypes::BOX_2DF()});
 	vector<unique_ptr<Expression>> centroid_func_args;
 
@@ -116,9 +107,7 @@ static PhysicalOperator &CreateOrderByMinX(PhysicalPlanGenerator &planner, const
 	auto centroid_expr = centroid_func.Bind(context, std::move(centroid_func_args));
 
 	// Get the xmin value function
-	auto &xmin_func_entry =
-	    catalog.GetEntry(context, CatalogType::SCALAR_FUNCTION_ENTRY, Identifier::DefaultSchema(), "st_xmin")
-	        .Cast<ScalarFunctionCatalogEntry>();
+	auto &xmin_func_entry = Catalog::GetBuiltinEntry<ScalarFunctionCatalogEntry>(context, Identifier("st_xmin"));
 	const auto &xmin_func = *xmin_func_entry.functions.GetFunctionByArguments(context, {GeoTypes::POINT_2D()});
 	vector<unique_ptr<Expression>> xmin_func_args;
 
