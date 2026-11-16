@@ -2707,7 +2707,7 @@ struct ST_DistanceWithin {
 
 		Value dist_expr;
 		if (arguments.back()->IsFoldable() &&
-		    ExpressionExecutor::TryEvaluateScalar(context, *arguments.back(), dist_expr)) {
+		    ExpressionExecutor::TryEvaluateFoldable(context, *arguments.back(), dist_expr)) {
 			const auto dist_value = dist_expr.GetValue<double>();
 
 			// the distance argument stays part of the expression tree - Execute reads the folded value instead

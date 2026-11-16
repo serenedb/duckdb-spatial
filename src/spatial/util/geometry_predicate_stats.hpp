@@ -104,7 +104,7 @@ inline bool TryCaptureGeometryPredicateConstant(BindScalarFunctionInput &input, 
 		std::swap(arguments[0], arguments[1]);
 	}
 	Value constant;
-	if (!ExpressionExecutor::TryEvaluateScalar(input.GetClientContext(), *arguments[1], constant)) {
+	if (!ExpressionExecutor::TryEvaluateFoldable(input.GetClientContext(), *arguments[1], constant)) {
 		return false;
 	}
 	bind.has_const = true;

@@ -128,7 +128,7 @@ public:
 		const auto bbox_expr = func.Bind(context, std::move(children));
 
 		Value result;
-		if (!ExpressionExecutor::TryEvaluateScalar(context, *bbox_expr, result)) {
+		if (!ExpressionExecutor::TryEvaluateFoldable(context, *bbox_expr, result)) {
 			return false;
 		}
 		if (result.IsNull()) {
