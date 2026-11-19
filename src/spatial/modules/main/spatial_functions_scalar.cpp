@@ -4237,7 +4237,7 @@ struct ST_GeomFromHEXWKB {
 	static constexpr auto DESCRIPTION = R"(
 		Deserialize a GEOMETRY from a HEX(E)WKB encoded string
 
-		DuckDB spatial doesn't currently differentiate between `WKB` and `EWKB`, so `ST_GeomFromHEXWKB` and `ST_GeomFromHEXEWKB` are just aliases of each other.
+		`WKB` and `EWKB` are not told apart, so `ST_GeomFromHEXWKB` and `ST_GeomFromHEXEWKB` are just aliases of each other.
 	)";
 
 	static constexpr auto EXAMPLE = "";
