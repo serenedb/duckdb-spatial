@@ -53,7 +53,7 @@ static unique_ptr<GlobalTableFunctionState> RTreeIndexInfoInit(ClientContext &co
 	auto result = make_uniq<RTreeIndexInfoState>();
 
 	// scan all the schemas for indexes and collect them
-	auto schemas = Catalog::GetAllSchemas(context);
+	auto schemas = Catalog::GetAllSchemas(CatalogEntryRetriever::Internal(context));
 	for (auto &schema : schemas) {
 		schema.get().Scan(context, CatalogType::INDEX_ENTRY, [&](CatalogEntry &entry) {
 			auto &index_entry = entry.Cast<IndexCatalogEntry>();
@@ -248,6 +248,7 @@ void RTreeModule::RegisterIndexPragmas(ExtensionLoader &loader) {
 
 	TableFunction info_function("pragma_rtree_index_info", {}, RTreeIndexInfoExecute, RTreeindexInfoBind,
 	                            RTreeIndexInfoInit);
+	info_function.required_capability = RoleCapability::Superuser;
 
 	loader.RegisterFunction(info_function);
 

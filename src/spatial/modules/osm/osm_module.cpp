@@ -3,6 +3,7 @@
 #include "spatial/modules/osm/osm_module.hpp"
 
 #include "duckdb/function/replacement_scan.hpp"
+#include "duckdb/main/client_context.hpp"
 #include "duckdb/main/database.hpp"
 #include "duckdb/parallel/task_scheduler.hpp"
 #include "duckdb/parser/expression/constant_expression.hpp"
@@ -88,6 +89,7 @@ unique_ptr<FunctionData> Bind(ClientContext &context, TableFunctionBindInput &in
 
 	// Create bind data
 	auto file_name = StringValue::Get(input.inputs[0]);
+	context.CheckFileAccess(file_name, RoleCapability::ReadServerFiles);
 	auto result = make_uniq<BindData>(file_name);
 	return std::move(result);
 }

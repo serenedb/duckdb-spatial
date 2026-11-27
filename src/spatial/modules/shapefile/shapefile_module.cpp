@@ -127,18 +127,22 @@ struct ShapefileIO {
 
 	FileSystem &fs;
 	string error;
+	ErrorData open_error;
 };
 
 SAFile DuckDBShapefileOpen(void *userData, const char *filename, const char *access_mode) {
+	auto &io = *static_cast<ShapefileIO *>(userData);
 	try {
-		auto &fs = static_cast<ShapefileIO *>(userData)->fs;
 		const auto flags = FileFlags::FILE_FLAGS_READ | FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
-		auto file_handle = fs.OpenFile(filename, flags);
+		auto file_handle = io.fs.OpenFile(filename, flags);
 		if (!file_handle) {
 			return nullptr;
 		}
 		return reinterpret_cast<SAFile>(file_handle.release());
-	} catch (...) {
+	} catch (std::exception &ex) {
+		if (!io.open_error.HasError()) {
+			io.open_error = ErrorData(ex);
+		}
 		return nullptr;
 	}
 }
@@ -259,6 +263,9 @@ DBFHandlePtr OpenDBFFile(ShapefileIO &io, const string &filename) {
 	const auto handle = DBFOpenLL(filename.c_str(), "rb", &hooks);
 
 	if (!handle) {
+		if (io.open_error.HasError()) {
+			io.open_error.Throw();
+		}
 		if (io.error.empty()) {
 			throw IOException("Failed to open DBF file %s", filename);
 		}
@@ -272,6 +279,9 @@ SHPHandlePtr OpenSHPFile(ShapefileIO &io, const string &filename) {
 	const auto hooks = GetDuckDBHooks(io);
 	const auto handle = SHPOpenLL(filename.c_str(), "rb", &hooks);
 	if (!handle) {
+		if (io.open_error.HasError()) {
+			io.open_error.Throw();
+		}
 		if (io.error.empty()) {
 			throw IOException("Failed to open SHP file %s", filename);
 		}
