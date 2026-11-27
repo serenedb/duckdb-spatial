@@ -53,7 +53,7 @@ static unique_ptr<GlobalTableFunctionState> RTreeIndexInfoInit(ClientContext &co
 	auto result = make_uniq<RTreeIndexInfoState>();
 
 	// scan all the schemas for indexes and collect them
-	auto schemas = Catalog::GetAllSchemas(context, RoleAccess::System());
+	auto schemas = Catalog::GetAllSchemas(CatalogEntryRetriever::Internal(context));
 	for (auto &schema : schemas) {
 		schema.get().Scan(context, CatalogType::INDEX_ENTRY, [&](CatalogEntry &entry) {
 			auto &index_entry = entry.Cast<IndexCatalogEntry>();
